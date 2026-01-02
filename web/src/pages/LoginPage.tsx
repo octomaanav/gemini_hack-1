@@ -17,45 +17,45 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex">
       {/* Left Panel - Form */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Back button */}
           <button
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 text-sm text-surface-500 hover:text-surface-700 hover:bg-surface-100 rounded-lg px-2 py-1.5 -ml-2 cursor-pointer transition-all duration-150 mb-8"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-900 hover:bg-primary-100/60 rounded-lg px-3 py-2 -ml-3 cursor-pointer transition-all duration-150 mb-10"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
             </svg>
             Back to home
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
-              <span className="text-white text-lg font-semibold">L</span>
+          <Link to="/" className="flex items-center gap-3 mb-12">
+            <div className="w-11 h-11 bg-gradient-to-br from-primary-500 via-primary-600 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white text-lg font-bold">L</span>
             </div>
-            <span className="text-xl font-semibold text-surface-900">LearnHub</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent">LearnHub</span>
           </Link>
 
           {/* Header */}
-          <h1 className="text-2xl font-semibold text-surface-900">
+          <h1 className="text-3xl font-black text-surface-900 mb-2">
             Welcome back
           </h1>
-          <p className="mt-2 text-surface-600">
-            Sign in to continue your learning journey.
+          <p className="text-lg text-surface-600 font-medium mb-10">
+            Continue your learning journey.
           </p>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Social Login */}
-          <div className="space-y-3">
+          <div className="space-y-3 mb-6">
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-surface-300 rounded-xl text-surface-700 font-medium hover:bg-surface-50 hover:border-surface-400 shadow-card hover:shadow-card-hover cursor-pointer transition-all duration-150"
+              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white border-2 border-primary-200 rounded-2xl text-surface-700 font-bold hover:border-primary-400 hover:bg-primary-50/50 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 group"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -63,31 +63,31 @@ function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Continue with Google
+              <span>Continue with Google</span>
             </button>
 
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-surface-300 rounded-xl text-surface-700 font-medium hover:bg-surface-50 hover:border-surface-400 shadow-card hover:shadow-card-hover cursor-pointer transition-all duration-150"
+              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white border-2 border-secondary-200 rounded-2xl text-surface-700 font-bold hover:border-secondary-400 hover:bg-secondary-50/50 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 group"
             >
               <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
-              Continue with Facebook
+              <span>Continue with Facebook</span>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-surface-200"></div>
-            <span className="px-4 text-sm text-surface-500">or</span>
-            <div className="flex-1 border-t border-surface-200"></div>
+          <div className="my-8 flex items-center">
+            <div className="flex-1 border-t border-surface-300"></div>
+            <span className="px-4 text-sm font-semibold text-surface-600">or</span>
+            <div className="flex-1 border-t border-surface-300"></div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5 mb-8">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-surface-700 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-bold text-surface-900 mb-2">
                 Email address
               </label>
               <input
@@ -97,18 +97,18 @@ function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-white border border-surface-300 rounded-xl text-surface-900 placeholder-surface-400 hover:border-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-inner-soft transition-all duration-150"
+                className="w-full px-5 py-3.5 bg-white border-2 border-primary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-primary-300 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-400/30 shadow-sm transition-all duration-150 font-medium"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-sm font-medium text-surface-700">
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="block text-sm font-bold text-surface-900">
                   Password
                 </label>
-                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
-                  Forgot password?
+                <a href="#" className="text-sm font-semibold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
+                  Forgot?
                 </a>
               </div>
               <input
@@ -118,50 +118,51 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 bg-white border border-surface-300 rounded-xl text-surface-900 placeholder-surface-400 hover:border-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-inner-soft transition-all duration-150"
+                className="w-full px-5 py-3.5 bg-white border-2 border-primary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-primary-300 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-400/30 shadow-sm transition-all duration-150 font-medium"
                 placeholder="••••••••"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shadow-button hover:shadow-elevated cursor-pointer transition-all duration-150"
+              className="w-full px-5 py-3.5 bg-gradient-to-r from-secondary-600 to-secondary-700 text-white font-bold rounded-xl hover:from-secondary-700 hover:to-secondary-800 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base"
             >
               Sign in
             </button>
           </form>
 
           {/* Sign up link */}
-          <p className="mt-6 text-center text-sm text-surface-600">
+          <p className="text-center text-base text-surface-700 font-medium">
             Don't have an account?{' '}
-            <Link to="/signup" className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
+            <Link to="/signup" className="font-bold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
               Create one
             </Link>
           </p>
 
           {/* Terms */}
-          <p className="mt-8 text-center text-xs text-surface-500 leading-relaxed">
+          <p className="mt-6 text-center text-xs text-surface-600 leading-relaxed font-medium">
             By signing in, you agree to our{' '}
-            <a href="#" className="underline hover:text-surface-700 cursor-pointer transition-colors duration-150">Terms of Service</a>
+            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Terms</a>
             {' '}and{' '}
-            <a href="#" className="underline hover:text-surface-700 cursor-pointer transition-colors duration-150">Privacy Policy</a>.
+            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Privacy</a>.
           </p>
         </div>
       </div>
 
       {/* Right Panel - Visual */}
-      <div className="hidden lg:flex lg:flex-1 bg-primary-600 items-center justify-center p-12">
-        <div className="max-w-md text-center">
-          <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-8">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-primary-600 via-primary-500 to-teal-600 items-center justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+        <div className="relative max-w-md text-center z-10">
+          <div className="w-24 h-24 bg-white/15 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-xl border border-white/20">
+            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
-          <h2 className="text-2xl font-semibold text-white mb-4">
-            Pick up where you left off
+          <h2 className="text-3xl font-black text-white mb-4">
+            Your journey continues
           </h2>
-          <p className="text-primary-100 leading-relaxed">
-            Your learning progress is saved and waiting. Continue building knowledge at your own pace.
+          <p className="text-primary-100 leading-relaxed text-lg font-medium">
+            Pick up where you left off. Your progress is saved and waiting for you.
           </p>
         </div>
       </div>

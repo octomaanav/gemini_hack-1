@@ -59,10 +59,10 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
-          <p className="text-surface-600 text-sm">Loading your dashboard...</p>
+          <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
+          <p className="text-surface-600 text-base font-semibold">Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -77,38 +77,39 @@ function Dashboard() {
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   return (
-    <div className={`min-h-screen ${accessibility.contrastMode ? 'bg-surface-900' : 'bg-surface-50'} ${textSizeClass}`}>
+    <div className={`min-h-screen ${accessibility.contrastMode ? 'bg-surface-900' : 'bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20'} ${textSizeClass}`}>
       {/* Navigation */}
-      <nav className={`sticky top-0 z-50 ${accessibility.contrastMode ? 'bg-surface-900 border-surface-700' : 'bg-surface-50/80 backdrop-blur-sm border-surface-200'} border-b`}>
+      <nav className={`sticky top-0 z-50 ${accessibility.contrastMode ? 'bg-surface-900 border-surface-700' : 'bg-white/80 backdrop-blur-md border-primary-100/50'} border-b transition-colors duration-150`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-black text-sm font-semibold">L</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 via-primary-600 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white text-base font-bold">L</span>
             </div>
-            <span className={`text-lg font-semibold ${accessibility.contrastMode ? 'text-black' : 'text-surface-900'}`}>LearnHub</span>
+            <span className={`text-xl font-bold ${accessibility.contrastMode ? 'text-white' : 'bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent'}`}>LearnHub</span>
           </div>
           
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowAccessibility(!showAccessibility)}
-              className={`p-2 rounded-lg cursor-pointer transition-all duration-150 ${
+              className={`p-2.5 rounded-xl cursor-pointer transition-all duration-150 font-semibold ${
                 accessibility.contrastMode 
                   ? 'hover:bg-surface-800 text-surface-300' 
-                  : 'hover:bg-surface-100 text-surface-600'
-              } ${showAccessibility ? 'bg-primary-100 text-primary-600' : ''}`}
+                  : 'hover:bg-primary-100 text-primary-600'
+              } ${showAccessibility ? (accessibility.contrastMode ? 'bg-surface-700' : 'bg-primary-100') : ''}`}
               aria-label="Accessibility settings"
+              title="Accessibility settings"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
             <button
               onClick={handleLogout}
-              className={`px-4 py-2 text-sm font-medium rounded-lg cursor-pointer transition-all duration-150 ${
+              className={`px-4 py-2 text-sm font-bold rounded-lg cursor-pointer transition-all duration-150 ${
                 accessibility.contrastMode 
-                  ? 'text-surface-300 hover:bg-surface-800' 
-                  : 'text-surface-600 hover:bg-surface-100'
+                  ? 'text-surface-300 hover:bg-surface-800 border border-surface-700' 
+                  : 'text-surface-700 hover:bg-surface-100/70 border border-surface-200'
               }`}
             >
               Sign out
@@ -118,53 +119,53 @@ function Dashboard() {
 
         {/* Accessibility Panel */}
         {showAccessibility && (
-          <div className={`border-t ${accessibility.contrastMode ? 'border-surface-700 bg-surface-800' : 'border-surface-200 bg-white'}`}>
-            <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className={`border-t ${accessibility.contrastMode ? 'border-surface-700 bg-surface-800' : 'border-primary-100/50 bg-white/50 backdrop-blur-sm'} transition-colors duration-150`}>
+            <div className="max-w-6xl mx-auto px-6 py-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => setAccessibility({ ...accessibility, voiceNarration: !accessibility.voiceNarration })}
-                  className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-150 ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.voiceNarration
-                      ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-card'
+                      ? 'border-primary-500 bg-primary-100 text-primary-800 shadow-md'
                       : accessibility.contrastMode 
                         ? 'border-surface-600 text-surface-300 hover:border-surface-500 hover:bg-surface-700/50' 
-                        : 'border-surface-200 text-surface-600 hover:border-surface-300 hover:bg-surface-50'
+                        : 'border-primary-200/50 text-surface-600 hover:border-primary-300 hover:bg-primary-50/60'
                   }`}
                 >
-                  <div className="text-lg mb-1">🔊</div>
-                  <div className="font-medium text-sm">Voice</div>
-                  <div className="text-xs opacity-70">{accessibility.voiceNarration ? 'On' : 'Off'}</div>
+                  <div className="text-2xl mb-1">🔊</div>
+                  <div className="font-bold text-sm">Voice</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.voiceNarration ? 'On' : 'Off'}</div>
                 </button>
 
                 <button
                   onClick={() => setAccessibility({ ...accessibility, captions: !accessibility.captions })}
-                  className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-150 ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.captions
-                      ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-card'
+                      ? 'border-secondary-500 bg-secondary-100 text-secondary-800 shadow-md'
                       : accessibility.contrastMode 
                         ? 'border-surface-600 text-surface-300 hover:border-surface-500 hover:bg-surface-700/50' 
-                        : 'border-surface-200 text-surface-600 hover:border-surface-300 hover:bg-surface-50'
+                        : 'border-secondary-200/50 text-surface-600 hover:border-secondary-300 hover:bg-secondary-50/60'
                   }`}
                 >
-                  <div className="text-lg mb-1">💬</div>
-                  <div className="font-medium text-sm">Captions</div>
-                  <div className="text-xs opacity-70">{accessibility.captions ? 'On' : 'Off'}</div>
+                  <div className="text-2xl mb-1">💬</div>
+                  <div className="font-bold text-sm">Captions</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.captions ? 'On' : 'Off'}</div>
                 </button>
 
-                <div className={`p-4 rounded-xl border ${accessibility.contrastMode ? 'border-surface-600' : 'border-surface-200'}`}>
-                  <div className="text-lg mb-1">📏</div>
-                  <div className={`font-medium text-sm mb-2 ${accessibility.contrastMode ? 'text-surface-300' : 'text-surface-600'}`}>Text size</div>
-                  <div className="flex gap-1">
+                <div className={`p-4 rounded-2xl border-2 ${accessibility.contrastMode ? 'border-surface-600' : 'border-accent-200/50'}`}>
+                  <div className="text-2xl mb-1">📏</div>
+                  <div className={`font-bold text-sm mb-2 ${accessibility.contrastMode ? 'text-surface-300' : 'text-surface-700'}`}>Text size</div>
+                  <div className="flex gap-1.5">
                     {(['normal', 'large', 'xlarge'] as const).map((size) => (
                       <button
                         key={size}
                         onClick={() => setAccessibility({ ...accessibility, textSize: size })}
-                        className={`px-2 py-1 rounded text-xs font-medium cursor-pointer transition-all duration-150 ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all duration-150 ${
                           accessibility.textSize === size
-                            ? 'bg-primary-600 text-white shadow-button'
+                            ? 'bg-accent-600 text-white shadow-md'
                             : accessibility.contrastMode 
                               ? 'bg-surface-700 text-surface-300 hover:bg-surface-600' 
-                              : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+                              : 'bg-accent-100/60 text-accent-700 hover:bg-accent-100'
                         }`}
                       >
                         {size === 'normal' ? 'A' : size === 'large' ? 'A+' : 'A++'}
@@ -175,15 +176,15 @@ function Dashboard() {
 
                 <button
                   onClick={() => setAccessibility({ ...accessibility, contrastMode: !accessibility.contrastMode })}
-                  className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-150 ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.contrastMode
-                      ? 'border-primary-500 bg-primary-900 text-primary-300 shadow-card'
-                      : 'border-surface-200 text-surface-600 hover:border-surface-300 hover:bg-surface-50'
+                      ? 'border-primary-600 bg-primary-900/50 text-primary-300 shadow-md'
+                      : 'border-tertiary-200/50 text-surface-600 hover:border-tertiary-300 hover:bg-tertiary-50/60'
                   }`}
                 >
-                  <div className="text-lg mb-1">◐</div>
-                  <div className="font-medium text-sm">Contrast</div>
-                  <div className="text-xs opacity-70">{accessibility.contrastMode ? 'High' : 'Normal'}</div>
+                  <div className="text-2xl mb-1">◐</div>
+                  <div className="font-bold text-sm">Contrast</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.contrastMode ? 'High' : 'Normal'}</div>
                 </button>
               </div>
             </div>
@@ -192,11 +193,11 @@ function Dashboard() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-10">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className={`text-2xl font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>
-            Welcome back, {firstName}
+        <div className="mb-10">
+          <h1 className={`text-4xl font-black ${accessibility.contrastMode ? 'text-white' : 'bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent'}`}>
+            Welcome back, {firstName}! 
           </h1>
           <p className={`mt-1 ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-600'}`}>
             Ready to continue learning?

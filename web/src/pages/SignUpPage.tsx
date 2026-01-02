@@ -1,30 +1,65 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-function LoginPage() {
+function SignUpPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    console.log('Login:', { email, password });
+    // TODO: Implement signup logic
+    console.log('Sign up:', { name, email, password });
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSignup = () => {
     window.location.href = 'http://localhost:8000/api/auth/google';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex">
-      {/* Left Panel - Form */}
+    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-tertiary-50/20 to-secondary-50/20 flex flex-col lg:flex-row">
+      {/* Left Panel - Visual */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-tertiary-500 via-tertiary-600 to-orange-600 items-center justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+        <div className="relative max-w-md text-center z-10">
+          <div className="w-24 h-24 bg-white/15 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-xl border border-white/20">
+            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h2 className="text-4xl font-black text-white mb-4 leading-tight">
+            Start your learning adventure
+          </h2>
+          <p className="text-orange-100 leading-relaxed text-lg font-medium mb-12">
+            Join thousands of learners building knowledge through interactive lessons and personalized paths.
+          </p>
+
+          {/* Testimonial */}
+          <div className="p-6 bg-white/15 backdrop-blur-md rounded-2xl text-left border border-white/20">
+            <p className="text-white/95 italic leading-relaxed font-medium">
+              "LearnHub helped me understand concepts I'd struggled with. The adaptive learning is incredible."
+            </p>
+            <div className="mt-5 flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-tertiary-300 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-white text-sm font-bold">SK</span>
+              </div>
+              <div>
+                <div className="text-white font-bold text-sm">Sarah K.</div>
+                <div className="text-orange-100 text-xs font-semibold">Completed 12 courses</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Form */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Back button */}
           <button
             onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-900 hover:bg-primary-100/60 rounded-lg px-3 py-2 -ml-3 cursor-pointer transition-all duration-150 mb-10"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-tertiary-700 hover:text-tertiary-900 hover:bg-tertiary-100/60 rounded-lg px-3 py-2 -ml-3 cursor-pointer transition-all duration-150 mb-10"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
@@ -42,19 +77,19 @@ function LoginPage() {
 
           {/* Header */}
           <h1 className="text-3xl font-black text-surface-900 mb-2">
-            Welcome back
+            Create your account
           </h1>
           <p className="text-lg text-surface-600 font-medium mb-10">
-            Continue your learning journey.
+            Start learning free. No credit card required.
           </p>
         </div>
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          {/* Social Login */}
+          {/* Social Signup */}
           <div className="space-y-3 mb-6">
             <button
               type="button"
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleSignup}
               className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white border-2 border-primary-200 rounded-2xl text-surface-700 font-bold hover:border-primary-400 hover:bg-primary-50/50 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 group"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -87,6 +122,22 @@ function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5 mb-8">
             <div>
+              <label htmlFor="name" className="block text-sm font-bold text-surface-900 mb-2">
+                Full name
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                autoComplete="name"
+                className="w-full px-5 py-3.5 bg-white border-2 border-tertiary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-tertiary-300 focus:outline-none focus:border-tertiary-500 focus:ring-2 focus:ring-tertiary-400/30 shadow-sm transition-all duration-150 font-medium"
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div>
               <label htmlFor="email" className="block text-sm font-bold text-surface-900 mb-2">
                 Email address
               </label>
@@ -97,72 +148,50 @@ function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-5 py-3.5 bg-white border-2 border-primary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-primary-300 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-400/30 shadow-sm transition-all duration-150 font-medium"
+                className="w-full px-5 py-3.5 bg-white border-2 border-tertiary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-tertiary-300 focus:outline-none focus:border-tertiary-500 focus:ring-2 focus:ring-tertiary-400/30 shadow-sm transition-all duration-150 font-medium"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label htmlFor="password" className="block text-sm font-bold text-surface-900">
-                  Password
-                </label>
-                <a href="#" className="text-sm font-semibold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
-                  Forgot?
-                </a>
-              </div>
+              <label htmlFor="password" className="block text-sm font-bold text-surface-900 mb-2">
+                Password
+              </label>
               <input
                 type="password"
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
-                className="w-full px-5 py-3.5 bg-white border-2 border-primary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-primary-300 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-400/30 shadow-sm transition-all duration-150 font-medium"
+                autoComplete="new-password"
+                className="w-full px-5 py-3.5 bg-white border-2 border-tertiary-200 rounded-xl text-surface-900 placeholder-surface-400 hover:border-tertiary-300 focus:outline-none focus:border-tertiary-500 focus:ring-2 focus:ring-tertiary-400/30 shadow-sm transition-all duration-150 font-medium"
                 placeholder="••••••••"
               />
+              <p className="mt-2 text-xs font-semibold text-surface-600">Minimum 8 characters</p>
             </div>
 
             <button
               type="submit"
-              className="w-full px-5 py-3.5 bg-gradient-to-r from-secondary-600 to-secondary-700 text-white font-bold rounded-xl hover:from-secondary-700 hover:to-secondary-800 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base"
+              className="w-full px-5 py-3.5 bg-gradient-to-r from-tertiary-500 to-tertiary-600 text-white font-bold rounded-xl hover:from-tertiary-600 hover:to-tertiary-700 focus:outline-none focus:ring-2 focus:ring-tertiary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base"
             >
-              Sign in
+              Create account
             </button>
           </form>
 
-          {/* Sign up link */}
+          {/* Sign in link */}
           <p className="text-center text-base text-surface-700 font-medium">
-            Don't have an account?{' '}
-            <Link to="/signup" className="font-bold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
-              Create one
+            Already have an account?{' '}
+            <Link to="/login" className="font-bold text-tertiary-600 hover:text-tertiary-700 cursor-pointer transition-colors duration-150">
+              Sign in
             </Link>
           </p>
 
           {/* Terms */}
           <p className="mt-6 text-center text-xs text-surface-600 leading-relaxed font-medium">
-            By signing in, you agree to our{' '}
+            By creating an account, you agree to our{' '}
             <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Terms</a>
             {' '}and{' '}
             <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Privacy</a>.
-          </p>
-        </div>
-      </div>
-
-      {/* Right Panel - Visual */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-primary-600 via-primary-500 to-teal-600 items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-        <div className="relative max-w-md text-center z-10">
-          <div className="w-24 h-24 bg-white/15 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto mb-10 shadow-xl border border-white/20">
-            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-black text-white mb-4">
-            Your journey continues
-          </h2>
-          <p className="text-primary-100 leading-relaxed text-lg font-medium">
-            Pick up where you left off. Your progress is saved and waiting for you.
           </p>
         </div>
       </div>
@@ -170,4 +199,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default SignUpPage;

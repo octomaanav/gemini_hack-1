@@ -59,8 +59,11 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-        <div className="text-2xl text-gray-700 font-semibold">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
+          <p className="text-surface-600 text-base font-semibold">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -71,86 +74,98 @@ function Dashboard() {
     xlarge: 'text-xl',
   }[accessibility.textSize];
 
+  const firstName = user?.name?.split(' ')[0] || 'there';
+
   return (
-    <div className={`min-h-screen ${accessibility.contrastMode ? 'bg-black text-white' : 'bg-linear-to-br from-blue-50 to-purple-50'} ${textSizeClass}`}>
-      {/* Top Bar */}
-      <div className={`${accessibility.contrastMode ? 'bg-gray-900 border-gray-700' : 'bg-white/80 backdrop-blur-sm border-gray-200'} border-b sticky top-0 z-50`}>
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Greeting */}
-            <div className="flex items-center gap-4">
-              <div className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-purple-600">
-                👋 Hi, {user?.name?.split(' ')[0] || 'Friend'}!
-              </div>
+    <div className={`min-h-screen ${accessibility.contrastMode ? 'bg-surface-900' : 'bg-gradient-to-br from-surface-50 via-primary-50/20 to-secondary-50/20'} ${textSizeClass}`}>
+      {/* Navigation */}
+      <nav className={`sticky top-0 z-50 ${accessibility.contrastMode ? 'bg-surface-900 border-surface-700' : 'bg-white/80 backdrop-blur-md border-primary-100/50'} border-b transition-colors duration-150`}>
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 via-primary-600 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white text-base font-bold">L</span>
             </div>
-
-            {/* Accessibility Controls */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAccessibility(!showAccessibility)}
-                className={`px-4 py-2 rounded-xl font-semibold transition-all shadow-lg ${
-                  accessibility.contrastMode
-                    ? 'bg-gray-800 text-white hover:bg-gray-700'
-                    : 'bg-linear-to-r from-blue-500 to-purple-500 text-white hover:shadow-xl'
-                }`}
-              >
-                🎧 Accessibility
-              </button>
-              <button
-                onClick={handleLogout}
-                className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                  accessibility.contrastMode
-                    ? 'bg-gray-800 text-white hover:bg-gray-700'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                } shadow-lg`}
-              >
-                Logout
-              </button>
-            </div>
+            <span className={`text-xl font-bold ${accessibility.contrastMode ? 'text-white' : 'bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent'}`}>LearnHub</span>
           </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAccessibility(!showAccessibility)}
+              className={`p-2.5 rounded-xl cursor-pointer transition-all duration-150 font-semibold ${
+                accessibility.contrastMode 
+                  ? 'hover:bg-surface-800 text-surface-300' 
+                  : 'hover:bg-primary-100 text-primary-600'
+              } ${showAccessibility ? (accessibility.contrastMode ? 'bg-surface-700' : 'bg-primary-100') : ''}`}
+              aria-label="Accessibility settings"
+              title="Accessibility settings"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleLogout}
+              className={`px-4 py-2 text-sm font-bold rounded-lg cursor-pointer transition-all duration-150 ${
+                accessibility.contrastMode 
+                  ? 'text-surface-300 hover:bg-surface-800 border border-surface-700' 
+                  : 'text-surface-700 hover:bg-surface-100/70 border border-surface-200'
+              }`}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
 
-          {/* Accessibility Settings Panel */}
-          {showAccessibility && (
-            <div className={`mt-4 p-4 rounded-2xl ${accessibility.contrastMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
-              <div className="grid md:grid-cols-2 gap-4">
+        {/* Accessibility Panel */}
+        {showAccessibility && (
+          <div className={`border-t ${accessibility.contrastMode ? 'border-surface-700 bg-surface-800' : 'border-primary-100/50 bg-white/50 backdrop-blur-sm'} transition-colors duration-150`}>
+            <div className="max-w-6xl mx-auto px-6 py-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button
                   onClick={() => setAccessibility({ ...accessibility, voiceNarration: !accessibility.voiceNarration })}
-                  className={`p-4 rounded-xl text-left transition-all ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.voiceNarration
-                      ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
-                      : accessibility.contrastMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700'
+                      ? 'border-primary-500 bg-primary-100 text-primary-800 shadow-md'
+                      : accessibility.contrastMode 
+                        ? 'border-surface-600 text-surface-300 hover:border-surface-500 hover:bg-surface-700/50' 
+                        : 'border-primary-200/50 text-surface-600 hover:border-primary-300 hover:bg-primary-50/60'
                   }`}
                 >
-                  <div className="text-2xl mb-2">🔊</div>
-                  <div className="font-semibold">Voice Narration</div>
-                  <div className="text-sm opacity-80">{accessibility.voiceNarration ? 'ON' : 'OFF'}</div>
+                  <div className="text-2xl mb-1">🔊</div>
+                  <div className="font-bold text-sm">Voice</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.voiceNarration ? 'On' : 'Off'}</div>
                 </button>
 
                 <button
                   onClick={() => setAccessibility({ ...accessibility, captions: !accessibility.captions })}
-                  className={`p-4 rounded-xl text-left transition-all ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.captions
-                      ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
-                      : accessibility.contrastMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700'
+                      ? 'border-secondary-500 bg-secondary-100 text-secondary-800 shadow-md'
+                      : accessibility.contrastMode 
+                        ? 'border-surface-600 text-surface-300 hover:border-surface-500 hover:bg-surface-700/50' 
+                        : 'border-secondary-200/50 text-surface-600 hover:border-secondary-300 hover:bg-secondary-50/60'
                   }`}
                 >
-                  <div className="text-2xl mb-2">💬</div>
-                  <div className="font-semibold">Captions</div>
-                  <div className="text-sm opacity-80">{accessibility.captions ? 'ON' : 'OFF'}</div>
+                  <div className="text-2xl mb-1">💬</div>
+                  <div className="font-bold text-sm">Captions</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.captions ? 'On' : 'Off'}</div>
                 </button>
 
-                <div className={`p-4 rounded-xl ${accessibility.contrastMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                  <div className="text-2xl mb-2">📏</div>
-                  <div className="font-semibold mb-2">Text Size</div>
-                  <div className="flex gap-2">
+                <div className={`p-4 rounded-2xl border-2 ${accessibility.contrastMode ? 'border-surface-600' : 'border-accent-200/50'}`}>
+                  <div className="text-2xl mb-1">📏</div>
+                  <div className={`font-bold text-sm mb-2 ${accessibility.contrastMode ? 'text-surface-300' : 'text-surface-700'}`}>Text size</div>
+                  <div className="flex gap-1.5">
                     {(['normal', 'large', 'xlarge'] as const).map((size) => (
                       <button
                         key={size}
                         onClick={() => setAccessibility({ ...accessibility, textSize: size })}
-                        className={`px-3 py-1 rounded-lg transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all duration-150 ${
                           accessibility.textSize === size
-                            ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
-                            : accessibility.contrastMode ? 'bg-gray-600 text-white' : 'bg-white text-gray-700'
+                            ? 'bg-accent-600 text-white shadow-md'
+                            : accessibility.contrastMode 
+                              ? 'bg-surface-700 text-surface-300 hover:bg-surface-600' 
+                              : 'bg-accent-100/60 text-accent-700 hover:bg-accent-100'
                         }`}
                       >
                         {size === 'normal' ? 'A' : size === 'large' ? 'A+' : 'A++'}
@@ -161,214 +176,190 @@ function Dashboard() {
 
                 <button
                   onClick={() => setAccessibility({ ...accessibility, contrastMode: !accessibility.contrastMode })}
-                  className={`p-4 rounded-xl text-left transition-all ${
+                  className={`p-4 rounded-2xl border-2 text-left cursor-pointer transition-all duration-150 font-semibold ${
                     accessibility.contrastMode
-                      ? 'bg-linear-to-r from-blue-500 to-purple-500 text-white'
-                      : 'bg-gray-100 text-gray-700'
+                      ? 'border-primary-600 bg-primary-900/50 text-primary-300 shadow-md'
+                      : 'border-tertiary-200/50 text-surface-600 hover:border-tertiary-300 hover:bg-tertiary-50/60'
                   }`}
                 >
-                  <div className="text-2xl mb-2">◐</div>
-                  <div className="font-semibold">High Contrast</div>
-                  <div className="text-sm opacity-80">{accessibility.contrastMode ? 'ON' : 'OFF'}</div>
+                  <div className="text-2xl mb-1">◐</div>
+                  <div className="font-bold text-sm">Contrast</div>
+                  <div className="text-xs opacity-70 font-medium">{accessibility.contrastMode ? 'High' : 'Normal'}</div>
                 </button>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </nav>
 
       {/* Main Content */}
-      <div className="container mx-auto px-6 py-8 max-w-5xl">
-        <StudentView accessibility={accessibility} />
-      </div>
-
-      {/* Floating Ask Button */}
-      <button className="fixed bottom-8 right-8 w-16 h-16 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all hover:scale-110 flex items-center justify-center text-2xl z-50">
-        💬
-      </button>
-    </div>
-  );
-}
-
-function StudentView({ accessibility }: { accessibility: AccessibilitySettings }) {
-  const [showAskModal, setShowAskModal] = useState(false);
-
-  return (
-    <div className="space-y-8">
-      {/* Today's Focus */}
-      <div className={`${accessibility.contrastMode ? 'bg-gray-900' : 'bg-white'} rounded-3xl p-8 shadow-2xl`}>
-        <div className="mb-4">
-          <div className="text-sm font-semibold text-purple-600 mb-2">🎯 TODAY'S FOCUS</div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Fractions using Pizza 🍕
-          </h2>
-          <p className={`text-xl ${accessibility.contrastMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>
-            Based on how you learn best
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        {/* Welcome Section */}
+        <div className="mb-10">
+          <h1 className={`text-4xl font-black ${accessibility.contrastMode ? 'text-white' : 'bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent'}`}>
+            Welcome back, {firstName}! 
+          </h1>
+          <p className={`mt-1 ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-600'}`}>
+            Ready to continue learning?
           </p>
-          <div className="flex items-center gap-2 text-lg text-gray-500">
-            <span>⏱</span>
-            <span>Learn at your pace</span>
-          </div>
         </div>
 
-        <button className="w-full md:w-auto px-12 py-6 bg-linear-to-r from-blue-500 to-purple-500 text-white text-2xl font-bold rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-purple-500/50 transition-all hover:scale-105 flex items-center justify-center gap-3">
-          <span>Start Lesson</span>
-          <span className="text-3xl">▶</span>
-        </button>
-      </div>
-
-      {/* Learning Journey */}
-      <div className={`${accessibility.contrastMode ? 'bg-gray-900' : 'bg-white'} rounded-3xl p-8 shadow-2xl`}>
-        <div className="mb-6">
-          <div className="text-sm font-semibold text-purple-600 mb-2">📈 YOUR LEARNING JOURNEY</div>
-          <h3 className="text-2xl md:text-3xl font-bold">Your Path</h3>
-        </div>
-
-        {/* Visual Roadmap */}
-        <div className="space-y-6">
-          {/* Completed Node */}
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 bg-linear-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-green-500/50 animate-pulse">
-              ✔
-            </div>
-            <div className="flex-1">
-              <div className="text-xl md:text-2xl font-bold">Numbers</div>
-              <div className={`${accessibility.contrastMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                You understood this well! 🌟
-              </div>
-            </div>
-          </div>
-
-          {/* Line connector */}
-          <div className="ml-10 border-l-4 border-dashed border-purple-300 h-8"></div>
-
-          {/* Current Node */}
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 bg-linear-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-3xl shadow-lg shadow-yellow-500/50 relative">
-              🍕
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold animate-bounce">
-                ●
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="text-xl md:text-2xl font-bold">Fractions</div>
-              <div className={`${accessibility.contrastMode ? 'text-gray-400' : 'text-gray-600'} mb-3`}>
-                You're getting better at this! Keep going 💪
-              </div>
-              {/* Confidence meter */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-linear-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-500" style={{ width: '60%' }}></div>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Today's Lesson Card */}
+            <div className={`rounded-2xl p-6 shadow-card ${accessibility.contrastMode ? 'bg-surface-800 border border-surface-700' : 'bg-white border border-surface-200'}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <span className={`text-xs font-medium uppercase tracking-wide ${accessibility.contrastMode ? 'text-primary-400' : 'text-primary-600'}`}>
+                    Continue Learning
+                  </span>
+                  <h2 className={`mt-1 text-xl font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>
+                    Introduction to Fractions
+                  </h2>
+                  <p className={`mt-1 text-sm ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}`}>
+                    Using pizza slices to understand parts of a whole
+                  </p>
                 </div>
-                <div className="text-sm font-semibold text-orange-500">Building Confidence</div>
+                <span className="text-3xl">🍕</span>
               </div>
-            </div>
-          </div>
 
-          {/* Line connector */}
-          <div className="ml-10 border-l-4 border-dashed border-gray-300 h-8"></div>
-
-          {/* Locked Node */}
-          <div className="flex items-center gap-6 opacity-50">
-            <div className={`w-20 h-20 ${accessibility.contrastMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full flex items-center justify-center text-3xl shadow-lg`}>
-              🔒
-            </div>
-            <div className="flex-1">
-              <div className="text-xl md:text-2xl font-bold">Decimals</div>
-              <div className={`${accessibility.contrastMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                Coming soon!
+              {/* Progress */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className={accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}>Progress</span>
+                  <span className={`font-medium ${accessibility.contrastMode ? 'text-surface-300' : 'text-surface-700'}`}>60%</span>
+                </div>
+                <div className={`h-2 rounded-full ${accessibility.contrastMode ? 'bg-surface-700' : 'bg-surface-100'}`}>
+                  <div className="h-2 rounded-full bg-primary-600 transition-all duration-500" style={{ width: '60%' }}></div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Line connector */}
-          <div className="ml-10 border-l-4 border-dashed border-gray-300 h-8"></div>
-
-          {/* Future Node */}
-          <div className="flex items-center gap-6 opacity-50">
-            <div className={`w-20 h-20 ${accessibility.contrastMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full flex items-center justify-center text-3xl shadow-lg`}>
-              💰
-            </div>
-            <div className="flex-1">
-              <div className="text-xl md:text-2xl font-bold">Money</div>
-              <div className={`${accessibility.contrastMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                Coming soon!
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Need Help Section */}
-      <div className={`${accessibility.contrastMode ? 'bg-gray-900' : 'bg-linear-to-br from-blue-100 to-purple-100'} rounded-3xl p-8 shadow-2xl`}>
-        <div className="mb-6">
-          <div className="text-sm font-semibold text-purple-600 mb-2">🧠 NEED HELP?</div>
-          <h3 className="text-2xl md:text-3xl font-bold mb-2">Ask LearnLens AI</h3>
-          <p className={`${accessibility.contrastMode ? 'text-gray-400' : 'text-gray-700'} text-lg`}>
-            I'm here to help you learn in your own way
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setShowAskModal(true)}
-            className={`p-6 rounded-2xl transition-all hover:scale-105 shadow-lg ${
-              accessibility.contrastMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:shadow-xl'
-            }`}
-          >
-            <div className="text-3xl mb-3">🗣</div>
-            <div className="font-semibold text-lg">Explain this differently</div>
-          </button>
-
-          <button
-            onClick={() => setShowAskModal(true)}
-            className={`p-6 rounded-2xl transition-all hover:scale-105 shadow-lg ${
-              accessibility.contrastMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:shadow-xl'
-            }`}
-          >
-            <div className="text-3xl mb-3">📸</div>
-            <div className="font-semibold text-lg">Show me with pictures</div>
-          </button>
-
-          <button
-            onClick={() => setShowAskModal(true)}
-            className={`p-6 rounded-2xl transition-all hover:scale-105 shadow-lg ${
-              accessibility.contrastMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:shadow-xl'
-            }`}
-          >
-            <div className="text-3xl mb-3">🔊</div>
-            <div className="font-semibold text-lg">Read this aloud</div>
-          </button>
-        </div>
-      </div>
-
-      {/* Ask Modal */}
-      {showAskModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`${accessibility.contrastMode ? 'bg-gray-900' : 'bg-white'} rounded-3xl p-8 max-w-2xl w-full shadow-2xl`}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-3xl font-bold">Ask LearnLens 💬</h3>
-              <button
-                onClick={() => setShowAskModal(false)}
-                className={`text-3xl ${accessibility.contrastMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
-              >
-                ×
+              <button className="w-full px-4 py-3 bg-primary-600 text-white font-medium rounded-xl hover:bg-primary-700 shadow-button hover:shadow-elevated cursor-pointer transition-all duration-150 flex items-center justify-center gap-2">
+                Continue lesson
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
-            <textarea
-              placeholder="Type your question here..."
-              className={`w-full h-40 p-4 rounded-2xl border-2 focus:outline-none focus:border-purple-500 text-lg ${
-                accessibility.contrastMode
-                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
-                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
-              }`}
-            />
-            <button className="w-full mt-4 px-8 py-4 bg-linear-to-r from-blue-500 to-purple-500 text-white text-xl font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-              Send Question
-            </button>
+
+            {/* Learning Path */}
+            <div className={`rounded-2xl p-6 shadow-card ${accessibility.contrastMode ? 'bg-surface-800 border border-surface-700' : 'bg-white border border-surface-200'}`}>
+              <h3 className={`text-lg font-semibold mb-6 ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>
+                Your learning path
+              </h3>
+
+              <div className="space-y-4">
+                {/* Completed */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-success-100 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>Numbers & Counting</div>
+                    <div className={`text-sm ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}`}>Completed</div>
+                  </div>
+                  <span className="text-success-600 text-sm font-medium">100%</span>
+                </div>
+
+                {/* Current */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0 ring-2 ring-primary-600 ring-offset-2">
+                    <span className="text-lg">🍕</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>Fractions</div>
+                    <div className={`text-sm ${accessibility.contrastMode ? 'text-primary-400' : 'text-primary-600'}`}>In progress</div>
+                  </div>
+                  <span className="text-primary-600 text-sm font-medium">60%</span>
+                </div>
+
+                {/* Locked */}
+                <div className="flex items-center gap-4 opacity-50">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${accessibility.contrastMode ? 'bg-surface-700' : 'bg-surface-100'}`}>
+                    <svg className={`w-5 h-5 ${accessibility.contrastMode ? 'text-surface-500' : 'text-surface-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-600'}`}>Decimals</div>
+                    <div className={`text-sm ${accessibility.contrastMode ? 'text-surface-500' : 'text-surface-400'}`}>Complete Fractions first</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 opacity-50">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${accessibility.contrastMode ? 'bg-surface-700' : 'bg-surface-100'}`}>
+                    <svg className={`w-5 h-5 ${accessibility.contrastMode ? 'text-surface-500' : 'text-surface-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium ${accessibility.contrastMode ? 'text-surface-400' : 'text-surface-600'}`}>Money & Finance</div>
+                    <div className={`text-sm ${accessibility.contrastMode ? 'text-surface-500' : 'text-surface-400'}`}>Locked</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Quick Stats */}
+            <div className={`rounded-2xl p-6 shadow-card ${accessibility.contrastMode ? 'bg-surface-800 border border-surface-700' : 'bg-white border border-surface-200'}`}>
+              <h3 className={`text-lg font-semibold mb-4 ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>
+                Your progress
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className={accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}>Lessons completed</span>
+                  <span className={`font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>12</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}>Current streak</span>
+                  <span className={`font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>5 days 🔥</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className={accessibility.contrastMode ? 'text-surface-400' : 'text-surface-500'}>Time this week</span>
+                  <span className={`font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>2h 15m</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Need Help Card */}
+            <div className={`rounded-2xl p-6 shadow-card ${accessibility.contrastMode ? 'bg-primary-900 border border-primary-800' : 'bg-primary-50 border border-primary-100'}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accessibility.contrastMode ? 'bg-primary-800' : 'bg-primary-100'}`}>
+                  <svg className={`w-5 h-5 ${accessibility.contrastMode ? 'text-primary-300' : 'text-primary-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className={`font-semibold ${accessibility.contrastMode ? 'text-white' : 'text-surface-900'}`}>
+                  Need help?
+                </h3>
+              </div>
+              <p className={`text-sm mb-4 ${accessibility.contrastMode ? 'text-primary-200' : 'text-surface-600'}`}>
+                Get explanations in different ways that work for you.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-150 ${accessibility.contrastMode ? 'bg-primary-800 hover:bg-primary-700' : 'bg-white hover:bg-primary-100 shadow-soft hover:shadow-card'}`}>
+                  <span className="text-lg">🗣</span>
+                  <div className={`text-xs mt-1 ${accessibility.contrastMode ? 'text-primary-200' : 'text-surface-600'}`}>Explain</div>
+                </button>
+                <button className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-150 ${accessibility.contrastMode ? 'bg-primary-800 hover:bg-primary-700' : 'bg-white hover:bg-primary-100 shadow-soft hover:shadow-card'}`}>
+                  <span className="text-lg">📸</span>
+                  <div className={`text-xs mt-1 ${accessibility.contrastMode ? 'text-primary-200' : 'text-surface-600'}`}>Visual</div>
+                </button>
+                <button className={`p-3 rounded-xl text-center cursor-pointer transition-all duration-150 ${accessibility.contrastMode ? 'bg-primary-800 hover:bg-primary-700' : 'bg-white hover:bg-primary-100 shadow-soft hover:shadow-card'}`}>
+                  <span className="text-lg">🔊</span>
+                  <div className={`text-xs mt-1 ${accessibility.contrastMode ? 'text-primary-200' : 'text-surface-600'}`}>Audio</div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </main>
     </div>
   );
 }

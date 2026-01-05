@@ -5,6 +5,7 @@ import passport from "passport";
 import cors from "cors";
 import usersRouter from "./routes/users.js";
 import accountsRouter from "./routes/accounts.js";
+import parseSourceRouter from "./routes/parse_source.js";
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use(passport.session());
 
 app.use("/users", usersRouter);
 app.use("/api/auth", accountsRouter);
+app.use("/api", parseSourceRouter);
 
 app.listen(8000, () => {
   console.log(`🚀 Server running on port 8000`);

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { normalizeLesson } from "../braille/normalize.js";
-import { textToBraille } from "../braille/validate.js";
-import { formatToBRF } from "../braille/toBRF.js";
-import { convertMixedLesson } from "../braille/parseLesson.js";
+import { normalizeLesson } from "../utils/braille/normalize.js";
+import { textToBraille } from "../utils/braille/validate.js";
+import { formatToBRF } from "../utils/braille/toBRF.js";
+import { convertMixedLesson } from "../utils/braille/parseLesson.js";
 
 const brailleRouter = Router();
 

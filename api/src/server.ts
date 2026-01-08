@@ -5,6 +5,7 @@ import passport from "passport";
 import cors from "cors";
 import usersRouter from "./routes/users.js";
 import accountsRouter from "./routes/accounts.js";
+import parseSourceRouter from "./routes/parse_source.js";
 import brailleRouter from "./routes/braille.js";
 
 const app = express();
@@ -41,6 +42,7 @@ app.use(passport.session());
 
 app.use("/users", usersRouter);
 app.use("/api/auth", accountsRouter);
+app.use("/api/parse", parseSourceRouter);
 app.use("/api/braille", brailleRouter);
 
 app.listen(8000, () => {

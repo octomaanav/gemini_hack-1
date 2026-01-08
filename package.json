@@ -1,5 +1,9 @@
 {
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "multer": "^2.0.2",
+    "pdf-parser": "^1.0.5",
+    "pdfjs-dist": "^5.4.530"
     "uuid": "^13.0.0",
     "uuidv4": "^6.2.13"
   }

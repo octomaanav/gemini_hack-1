@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ParsedUnit } from '../types/parsing';
+import type { ParsedUnit } from '../types';
 import { clearAllFiles } from '../utils/fileStorage';
 
 function ParseResultPage() {

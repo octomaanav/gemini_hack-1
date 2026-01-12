@@ -1,8 +1,11 @@
 import { Router } from "express";
+import { db } from "../db/index.js";
+import { chapters, lessons as lessonsTable } from "../db/schema.js";
+import { eq, and } from "drizzle-orm";
 import type { Unit, UnitLessons, Book } from "../../types/index.js";
-import { callGeminiJson } from "../utils/gemini.js";
+import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 
-export const lessonsRouter = Router();
+const lessonsRouter = Router();
 
 /**
  * Generate the lesson prompt for a given unit
@@ -211,48 +214,200 @@ Expected Output JSON
  */
 const generateLessonForUnit = async (unit: Unit): Promise<UnitLessons | null> => {
   const prompt = getLessonPrompt(unit);
+  const promptSize = new Blob([prompt]).size;
+  console.log(`Prompt size for unit "${unit.unitTitle}": ${(promptSize / 1024).toFixed(2)} KB`);
+  
+  // Warn if prompt is very large (Gemini has token limits)
+  if (promptSize > 100 * 1024) { // 100KB
+    console.warn(`⚠️  Large prompt detected (${(promptSize / 1024).toFixed(2)} KB). This may exceed token limits.`);
+  }
+  
   return callGeminiJson<UnitLessons>(prompt);
 };
 
+/**
+ * GET /api/lessons/chapter/:chapterId
+ * Get all lessons for a specific chapter, formatted as UnitLessons
+ */
+lessonsRouter.get("/chapter/:chapterId", async (req, res) => {
+  try {
+    const { chapterId } = req.params;
+
+    if (!chapterId) {
+      return res.status(400).json({ error: "Chapter ID is required" });
+    }
+
+    // Fetch chapter with its content
+    const [chapter] = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.id, chapterId))
+      .limit(1);
+
+    if (!chapter) {
+      return res.status(404).json({ error: "Chapter not found" });
+    }
+
+    // Fetch all lessons for this chapter
+    const lessonsList = await db
+      .select()
+      .from(lessonsTable)
+      .where(eq(lessonsTable.chapterId, chapterId))
+      .orderBy(lessonsTable.sortOrder);
+
+    // Construct UnitLessons from individual lesson records
+    if (lessonsList.length === 0) {
+      return res.json([{
+        unitTitle: chapter.name,
+        unitDescription: chapter.description,
+        lessons: []
+      }]);
+    }
+
+    // Transform lessons to UnitLessons format
+    const unitLessons: UnitLessons = {
+      unitTitle: chapter.name,
+      unitDescription: chapter.description,
+      lessons: lessonsList.map(lesson => {
+        // Extract sectionId from slug (format: "sectionId-title" or just use slug)
+        // Try to extract sectionId pattern like "1.1" or "1-1" from the beginning of slug
+        const slugParts = lesson.slug.split('-');
+        let sectionId = lesson.slug;
+        
+        // Try to find a sectionId pattern (e.g., "1.1", "1-1", "1_1")
+        if (slugParts.length > 0) {
+          const firstPart = slugParts[0];
+          // Check if it looks like a section ID (contains numbers and dots/dashes)
+          if (/^[\d.]+$/.test(firstPart) || /^[\d-]+$/.test(firstPart)) {
+            sectionId = firstPart.replace(/-/g, '.'); // Normalize to dot notation
+          }
+        }
+        
+        return {
+          sectionId,
+          title: lesson.title,
+          lessonContent: lesson.content as any, // LessonContent type
+        };
+      })
+    };
+
+    res.json([unitLessons]);
+  } catch (error) {
+    console.error("Error fetching lessons for chapter:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch lessons",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 lessonsRouter.post("/generate", async (req, res) => {
   try {
+    console.log("=== Lesson Generation Request Received ===");
+    
+    if (!hasGeminiApiKey()) {
+      console.error("Gemini API key not configured");
+      return res.status(500).json({ 
+        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable." 
+      });
+    }
+
     const book = req.body as Book;
 
     if (!Array.isArray(book) || book.length === 0) {
+      console.error("Invalid input: book is not an array or is empty", { bookType: typeof book, bookLength: Array.isArray(book) ? book.length : 'N/A' });
       return res.status(400).json({ 
         error: "Invalid input. Expected an array of units" 
       });
     }
 
-    for (const unit of book) {
+    console.log(`Processing ${book.length} units for lesson generation`);
+
+    // Validate all units before processing
+    for (let i = 0; i < book.length; i++) {
+      const unit = book[i];
       if (!unit.unitTitle || !unit.sections || !Array.isArray(unit.sections)) {
+        console.error(`Invalid unit at index ${i}:`, { 
+          hasTitle: !!unit.unitTitle, 
+          hasSections: !!unit.sections, 
+          sectionsIsArray: Array.isArray(unit.sections) 
+        });
         return res.status(400).json({ 
-          error: `Invalid unit format. Each unit must have unitTitle and sections array.` 
+          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.` 
         });
       }
       if (unit.sections.length === 0) {
+        console.error(`Unit "${unit.unitTitle}" has no sections`);
         return res.status(400).json({ error: `Unit "${unit.unitTitle}" has no sections` });
       }
     }
 
     const unitLessons: UnitLessons[] = [];
     
-    for (const unit of book) {
-      console.log(`Generating lessons for unit: ${unit.unitTitle}...`);
-      const lessons = await generateLessonForUnit(unit);
+    for (let i = 0; i < book.length; i++) {
+      const unit = book[i];
+      console.log(`[${i + 1}/${book.length}] Generating lessons for unit: "${unit.unitTitle}" (${unit.sections.length} sections)...`);
       
-      if (!lessons) {
+      try {
+        const startTime = Date.now();
+        const lessons = await generateLessonForUnit(unit);
+        const duration = Date.now() - startTime;
+        
+        if (!lessons) {
+          console.error(`[${i + 1}/${book.length}] Failed to generate lessons for unit: "${unit.unitTitle}" - Gemini returned null`);
+          return res.status(500).json({ 
+            error: `Failed to generate lessons for unit: "${unit.unitTitle}". The AI model may have returned invalid JSON or encountered an error. Check server logs for details.`,
+            failedUnit: unit.unitTitle,
+            completedUnits: unitLessons.length,
+            totalUnits: book.length
+          });
+        }
+        
+        // Validate the lessons structure
+        if (!lessons.unitTitle || !Array.isArray(lessons.lessons)) {
+          console.error(`[${i + 1}/${book.length}] Invalid lessons structure for unit: "${unit.unitTitle}"`, lessons);
+          return res.status(500).json({ 
+            error: `Invalid lesson structure returned for unit: "${unit.unitTitle}". Expected unitTitle and lessons array.`,
+            failedUnit: unit.unitTitle,
+            completedUnits: unitLessons.length,
+            totalUnits: book.length
+          });
+        }
+        
+        console.log(`[${i + 1}/${book.length}] ✓ Successfully generated ${lessons.lessons.length} lessons for "${unit.unitTitle}" (took ${(duration / 1000).toFixed(1)}s)`);
+        unitLessons.push(lessons);
+      } catch (unitError) {
+        console.error(`[${i + 1}/${book.length}] Error generating lessons for unit "${unit.unitTitle}":`, unitError);
+        
+        // Log full error details
+        if (unitError instanceof Error) {
+          console.error(`  Error message: ${unitError.message}`);
+          console.error(`  Error stack: ${unitError.stack}`);
+        }
+        
         return res.status(500).json({ 
-          error: `Failed to generate lessons for unit: ${unit.unitTitle}` 
+          error: `Failed to generate lessons for unit: "${unit.unitTitle}". ${unitError instanceof Error ? unitError.message : 'Unknown error'}`,
+          failedUnit: unit.unitTitle,
+          completedUnits: unitLessons.length,
+          totalUnits: book.length,
+          details: unitError instanceof Error ? unitError.message : String(unitError)
         });
       }
-      
-      unitLessons.push(lessons);
     }
 
+    console.log(`=== Lesson Generation Complete: ${unitLessons.length} units processed successfully ===`);
     res.json(unitLessons);
   } catch (error) {
-    console.error("Error generating lessons:", error);
-    res.status(500).json({ error: "Failed to generate lessons" });
+    console.error("=== Fatal Error in Lesson Generation ===", error);
+    if (error instanceof Error) {
+      console.error("  Error message:", error.message);
+      console.error("  Error stack:", error.stack);
+    }
+    res.status(500).json({ 
+      error: "Failed to generate lessons",
+      details: error instanceof Error ? error.message : String(error)
+    });
   }
 });
+
+export default lessonsRouter;

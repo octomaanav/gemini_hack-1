@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ChapterInfo } from '../types/parsing';
+import type { ChapterInfo } from '../types';
 import { storeFile } from '../utils/fileStorage';
 
 function UploadPage() {

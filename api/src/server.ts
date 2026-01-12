@@ -7,10 +7,11 @@ import usersRouter from "./routes/users.js";
 import accountsRouter from "./routes/accounts.js";
 import parseSourceRouter from "./routes/parse_source.js";
 import brailleRouter from "./routes/braille.js";
-import { lessonsRouter } from "./routes/lessons.js";
+import lessonsRouter from "./routes/lessons.js";
+import curriculumRouter from "./routes/curriculum.js";
+import adminRouter from "./routes/admin.js";
 
 const app = express();
-
 // CORS configuration
 app.use(
   cors({
@@ -19,8 +20,9 @@ app.use(
   })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body parser limit to handle large lesson content (50MB)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 
 app.use(
@@ -46,6 +48,8 @@ app.use("/api/auth", accountsRouter);
 app.use("/api/parse", parseSourceRouter);
 app.use("/api/braille", brailleRouter);
 app.use("/api/lessons", lessonsRouter);
+app.use("/api/curriculum", curriculumRouter);
+app.use("/api/admin", adminRouter);
 
 app.listen(8000, () => {
   console.log(`🚀 Server running on port 8000`);

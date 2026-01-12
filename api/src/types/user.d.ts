@@ -1,13 +1,2 @@
-
-export interface User {
-    user_id: string;
-    email: string;
-    name: string;
-    disabilities?: string[] | null;
-    grade?: string | null;
-    curriculum?: string | null;
-    subjects?: string[] | null;
-    isProfileComplete: boolean;
-    createdAt?: Date | string;
-    updatedAt?: Date | string;
-}
+// Re-export User type from central types file
+export type { User, UserProfile, UserSubject } from "../../types/index.js";

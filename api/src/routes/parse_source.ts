@@ -27,7 +27,9 @@ parseSourceRouter.post("/chapters", upload.single("file"), async (req: Request, 
       return res.status(400).json({ error: "Only PDF files are supported" });
     }
 
+    console.log(`Parsing chapters from: ${file.originalname} (${file.size} bytes)`);
     const chapters = await extractChaptersWithGemini(file.buffer);
+    console.log(`Found ${chapters.length} chapters`);
     return res.json({ chapters });
   } catch (error) {
     console.error("Error extracting chapters:", error);

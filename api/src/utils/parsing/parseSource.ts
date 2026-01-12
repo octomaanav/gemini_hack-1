@@ -1,34 +1,9 @@
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { callGeminiJson } from "../gemini.js";
+import type { TOCSection, ChapterInfo, Section, ParsedUnit } from "../../../types/index.js";
 
-// Section listed in TOC (before full parsing)
-export interface TOCSection {
-  sectionId: string;
-  title: string;
-  page?: number;
-}
-
-// Basic chapter info from TOC with optional sections
-export interface ChapterInfo {
-  title: string;
-  startPage: number;
-  tocSections: TOCSection[] | null; // null if sections not listed in TOC
-}
-
-// Section within a unit/chapter (after full parsing)
-export interface Section {
-  sectionId: string;
-  title: string;
-  description: string;
-  learningGoals: string[];
-}
-
-// Full parsed unit structure
-export interface ParsedUnit {
-  unitTitle: string;
-  unitDescription: string;
-  sections: Section[];
-}
+// Re-export types for convenience
+export type { TOCSection, ChapterInfo, Section, ParsedUnit };
 
 interface TOCCandidate {
   pageNum: number;

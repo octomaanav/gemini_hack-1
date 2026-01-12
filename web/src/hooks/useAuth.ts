@@ -1,30 +1,5 @@
 import { useState, useEffect } from 'react';
-
-interface User {
-  user_id: string;
-  email: string;
-  name: string;
-  disabilities?: string[];
-  grade?: string;
-  curriculum?: string;
-  subjects?: string[];
-  isProfileComplete: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AuthData {
-  user: User;
-}
-
-interface UseAuthReturn {
-  user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  isProfileComplete: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-}
+import type { User, AuthData, UseAuthReturn } from '../types';
 
 export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null);

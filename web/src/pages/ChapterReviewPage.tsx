@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ChapterInfo, TOCSection } from '../types/parsing';
+import type { ChapterInfo, TOCSection } from '../types';
 import { getFile } from '../utils/fileStorage';
 
 function ChapterReviewPage() {

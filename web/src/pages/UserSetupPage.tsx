@@ -1,93 +1,186 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { 
+  fetchCurricula,
+  fetchSubjectsWithChapters,
+  accessibilityOptions,
+} from '../data/curriculumData';
+import type { 
+  SetupStep, 
+  SetupStepInfo, 
+  CurriculumWithGrades,
+  GradeEntity,
+  SubjectWithChapters,
+  ChapterEntity,
+} from '../types';
 
-interface UserSetupData {
+const STEPS: SetupStepInfo[] = [
+  { id: 'accessibility', title: 'Accessibility', subtitle: 'How can we help you learn better?' },
+  { id: 'curriculum', title: 'Curriculum', subtitle: 'Which board do you follow?' },
+  { id: 'grade', title: 'Grade', subtitle: 'What class are you in?' },
+  { id: 'chapters', title: 'Chapters', subtitle: 'What would you like to learn?' },
+];
+
+interface SetupData {
   disabilities: string[];
-  grade: string;
-  curriculum: 'cbse' | 'ib' | 'state' | '';
-  subjects: string[];
+  curriculumId: string;
+  classId: string;
+  chapterIds: string[];
 }
 
 export const UserSetupPage = () => {
   const navigate = useNavigate();
-  const { user, isLoading } = useAuth();
-  const [setupData, setSetupData] = useState<UserSetupData>({
+  const { user, isLoading: authLoading } = useAuth();
+  const [currentStep, setCurrentStep] = useState<SetupStep>('accessibility');
+  const [setupData, setSetupData] = useState<SetupData>({
     disabilities: [],
-    grade: '',
-    curriculum: '',
-    subjects: []
+    curriculumId: '',
+    classId: '',
+    chapterIds: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const disabilities = [
-    { value: 'blind', label: 'Blind/Visually Impaired' },
-    { value: 'deaf', label: 'Deaf/Hard of Hearing' },
-    { value: 'neurodivergent', label: 'Neurodivergent (ADHD, Autism, Dyslexia, etc.)' }
-  ];
+  // Data from API
+  const [curricula, setCurricula] = useState<CurriculumWithGrades[]>([]);
+  const [subjectsWithChapters, setSubjectsWithChapters] = useState<SubjectWithChapters[]>([]);
+  const [isLoadingCurricula, setIsLoadingCurricula] = useState(true);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  
+  // UI state for expanded subjects
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
-  const grades = ['Class 9', 'Class 10', 'Class 11', 'Class 12'];
-  const curricula = [
-    { value: 'cbse', label: 'CBSE' },
-    { value: 'ib', label: 'IB' },
-    { value: 'state', label: 'State Board' }
-  ];
-  const subjectOptions = [
-    { value: 'mathematics', label: 'Mathematics' },
-    { value: 'physics', label: 'Physics' },
-    { value: 'chemistry', label: 'Chemistry' },
-    { value: 'biology', label: 'Biology' },
-    { value: 'english', label: 'English' }
-  ];
+  // Fetch curricula on mount
+  useEffect(() => {
+    fetchCurricula()
+      .then(setCurricula)
+      .catch((err) => setError(err.message))
+      .finally(() => setIsLoadingCurricula(false));
+  }, []);
 
-  const handleDisabilityToggle = (value: string) => {
+  // Fetch subjects with chapters when class changes
+  useEffect(() => {
+    if (setupData.curriculumId && setupData.classId) {
+      setIsLoadingSubjects(true);
+      fetchSubjectsWithChapters(setupData.curriculumId, setupData.classId)
+        .then((data) => {
+          setSubjectsWithChapters(data);
+          // Auto-expand first subject
+          if (data.length > 0) {
+            setExpandedSubjects(new Set([data[0].id]));
+          }
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setIsLoadingSubjects(false));
+    } else {
+      setSubjectsWithChapters([]);
+    }
+  }, [setupData.curriculumId, setupData.classId]);
+
+  // Get current step index
+  const currentStepIndex = STEPS.findIndex(s => s.id === currentStep);
+  
+  // Get selected curriculum and its grades
+  const selectedCurriculum = curricula.find(c => c.id === setupData.curriculumId);
+  const availableGrades: GradeEntity[] = selectedCurriculum?.grades || [];
+
+  // Check if current step is complete
+  const isStepComplete = (step: SetupStep): boolean => {
+    switch (step) {
+      case 'accessibility':
+        return setupData.disabilities.length > 0;
+      case 'curriculum':
+        return setupData.curriculumId !== '';
+      case 'grade':
+        return setupData.classId !== '';
+      case 'chapters':
+        return setupData.chapterIds.length > 0;
+      default:
+        return false;
+    }
+  };
+
+  // Navigation
+  const canGoNext = isStepComplete(currentStep);
+  const canGoPrev = currentStepIndex > 0;
+  const isLastStep = currentStepIndex === STEPS.length - 1;
+
+  const goToNextStep = () => {
+    if (currentStepIndex < STEPS.length - 1) {
+      setCurrentStep(STEPS[currentStepIndex + 1].id);
+    }
+  };
+
+  const goToPrevStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStep(STEPS[currentStepIndex - 1].id);
+    }
+  };
+
+  // Handlers
+  const toggleDisability = (id: string) => {
     setSetupData(prev => ({
       ...prev,
-      disabilities: prev.disabilities.includes(value)
-        ? prev.disabilities.filter(d => d !== value)
-        : [...prev.disabilities, value]
+      disabilities: prev.disabilities.includes(id)
+        ? prev.disabilities.filter(d => d !== id)
+        : [...prev.disabilities, id]
     }));
   };
 
-  const handleCurriculumChange = (value: string) => {
+  const selectCurriculum = (id: string) => {
     setSetupData(prev => ({
       ...prev,
-      curriculum: value as 'cbse' | 'ib' | 'state' | ''
+      curriculumId: id,
+      classId: '',
+      chapterIds: []
     }));
   };
 
-  const handleSubjectToggle = (subject: string) => {
+  const selectGrade = (id: string) => {
     setSetupData(prev => ({
       ...prev,
-      subjects: prev.subjects.includes(subject)
-        ? prev.subjects.filter(s => s !== subject)
-        : [...prev.subjects, subject]
+      classId: id,
+      chapterIds: []
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleSubjectExpanded = (subjectId: string) => {
+    setExpandedSubjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subjectId)) {
+        newSet.delete(subjectId);
+      } else {
+        newSet.add(subjectId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleChapter = (chapterId: string) => {
+    setSetupData(prev => ({
+      ...prev,
+      chapterIds: prev.chapterIds.includes(chapterId)
+        ? prev.chapterIds.filter(id => id !== chapterId)
+        : [...prev.chapterIds, chapterId]
+    }));
+  };
+
+  const toggleAllChaptersInSubject = (subject: SubjectWithChapters) => {
+    const subjectChapterIds = subject.chapters.map(c => c.id);
+    const allSelected = subjectChapterIds.every(id => setupData.chapterIds.includes(id));
+    
+    setSetupData(prev => ({
+      ...prev,
+      chapterIds: allSelected
+        ? prev.chapterIds.filter(id => !subjectChapterIds.includes(id))
+        : [...new Set([...prev.chapterIds, ...subjectChapterIds])]
+    }));
+  };
+
+  // Submit
+  const handleSubmit = async () => {
     setError(null);
-
-    // Validation
-    if (setupData.disabilities.length === 0) {
-      setError('Please select at least one disability type');
-      return;
-    }
-    if (!setupData.grade) {
-      setError('Please select your grade');
-      return;
-    }
-    if (!setupData.curriculum) {
-      setError('Please select a curriculum');
-      return;
-    }
-    if (setupData.subjects.length === 0) {
-      setError('Please select at least one subject');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -98,21 +191,22 @@ export const UserSetupPage = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          disabilities: setupData.disabilities,
-          grade: setupData.grade,
-          curriculum: setupData.curriculum,
-          subjects: setupData.subjects
+          profile: {
+            curriculumId: setupData.curriculumId,
+            classId: setupData.classId,
+            chapterIds: setupData.chapterIds,
+            disabilities: setupData.disabilities
+          },
+          curriculumId: setupData.curriculumId,
+          classId: setupData.classId
         })
       });
 
-      const updatedUser = await response.json();
-      console.log("profile",updatedUser.user.isProfileComplete)
-      console.log("response",response.ok)
+      const data = await response.json();
 
-      if (response.ok && updatedUser.user?.isProfileComplete) {
+      if (response.ok && data.user?.isProfileComplete) {
         navigate('/dashboard');
       } else {
-        const data = await response.json();
         setError(data.error || 'Failed to save profile');
       }
     } catch (err) {
@@ -122,12 +216,29 @@ export const UserSetupPage = () => {
     }
   };
 
-  if (isLoading) {
+  // Get selected chapters grouped by subject for display
+  const getSelectedChaptersBySubject = () => {
+    const result: { subject: SubjectWithChapters; chapters: ChapterEntity[] }[] = [];
+    for (const subject of subjectsWithChapters) {
+      const selectedChapters = subject.chapters.filter(c => setupData.chapterIds.includes(c.id));
+      if (selectedChapters.length > 0) {
+        result.push({ subject, chapters: selectedChapters });
+      }
+    }
+    return result;
+  };
+
+  // Count selected chapters per subject
+  const getSelectedCountForSubject = (subject: SubjectWithChapters) => {
+    return subject.chapters.filter(c => setupData.chapterIds.includes(c.id)).length;
+  };
+
+  if (authLoading || isLoadingCurricula) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-surface-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
         </div>
       </div>
     );
@@ -135,12 +246,12 @@ export const UserSetupPage = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-surface-600 mb-4">Please log in first</p>
+          <p className="text-slate-600 mb-4">Please log in first</p>
           <button
             onClick={() => navigate('/login')}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Go to Login
           </button>
@@ -150,137 +261,336 @@ export const UserSetupPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-surface-50 via-primary-50/20 to-secondary-50/20 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-lg border border-surface-200 p-8">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-surface-900 mb-2">
-              Welcome, {user.name}!
-            </h1>
-            <p className="text-surface-600">
-              Let's customize your learning experience
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+              L
+            </div>
+            <span className="font-bold text-xl text-slate-800">LearnHub</span>
           </div>
+          <div className="text-sm text-slate-600">
+            Welcome, <span className="font-semibold text-slate-800">{user.name}</span>
+          </div>
+        </div>
+      </header>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 font-medium">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Disability Type */}
-            <div>
-              <label className="block text-lg font-semibold text-surface-900 mb-4">
-                What's your disability type? (Select all that apply)
-              </label>
-              <div className="space-y-3">
-                {disabilities.map(disability => (
-                  <label key={disability.value} className="flex items-center p-4 border-2 border-surface-200 rounded-lg cursor-pointer hover:border-primary-300 hover:bg-primary-50 transition-all"
-                    style={{
-                      borderColor: setupData.disabilities.includes(disability.value) ? '#4f46e5' : 'inherit',
-                      backgroundColor: setupData.disabilities.includes(disability.value) ? '#eef2ff' : 'inherit'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      name="disabilities"
-                      value={disability.value}
-                      checked={setupData.disabilities.includes(disability.value)}
-                      onChange={(e) => handleDisabilityToggle(e.target.value)}
-                      className="w-5 h-5 text-primary-600"
-                    />
-                    <span className="ml-3 text-surface-800">{disability.label}</span>
-                  </label>
-                ))}
+      {/* Progress Bar */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            {STEPS.map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div 
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                    index < currentStepIndex 
+                      ? 'bg-green-500 text-white' 
+                      : index === currentStepIndex 
+                      ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+                      : 'bg-slate-200 text-slate-500'
+                  }`}
+                >
+                  {index < currentStepIndex ? '✓' : index + 1}
+                </div>
+                {index < STEPS.length - 1 && (
+                  <div className={`w-24 h-1 mx-2 rounded ${
+                    index < currentStepIndex ? 'bg-green-500' : 'bg-slate-200'
+                  }`} />
+                )}
               </div>
-            </div>
-
-            {/* Grade */}
-            <div>
-              <label className="block text-lg font-semibold text-surface-900 mb-4">
-                What's your current grade?
-              </label>
-              <select
-                value={setupData.grade}
-                onChange={(e) => setSetupData(prev => ({ ...prev, grade: e.target.value }))}
-                className="w-full px-4 py-3 border-2 border-surface-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-              >
-                <option value="">Select a grade</option>
-                {grades.map(grade => (
-                  <option key={grade} value={grade}>{grade}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Curriculum */}
-            <div>
-              <label className="block text-lg font-semibold text-surface-900 mb-4">
-                Which curriculum do you follow?
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {curricula.map(curr => (
-                  <label
-                    key={curr.value}
-                    className="p-4 border-2 border-surface-200 rounded-lg cursor-pointer hover:border-primary-300 hover:bg-primary-50 transition-all text-center"
-                    style={{
-                      borderColor: setupData.curriculum === curr.value ? '#4f46e5' : 'inherit',
-                      backgroundColor: setupData.curriculum === curr.value ? '#eef2ff' : 'inherit'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="curriculum"
-                      value={curr.value}
-                      checked={setupData.curriculum === curr.value}
-                      onChange={(e) => handleCurriculumChange(e.target.value)}
-                      className="w-4 h-4 text-primary-600"
-                    />
-                    <span className="ml-2 text-surface-800 font-medium">{curr.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Subjects */}
-            <div>
-              <label className="block text-lg font-semibold text-surface-900 mb-4">
-                Which subjects would you like to learn?
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {subjectOptions.map(subject => (
-                  <label
-                    key={subject.value}
-                    className="p-4 border-2 border-surface-200 rounded-lg cursor-pointer hover:border-secondary-300 hover:bg-secondary-50 transition-all flex items-center"
-                    style={{
-                      borderColor: setupData.subjects.includes(subject.value) ? '#7c3aed' : 'inherit',
-                      backgroundColor: setupData.subjects.includes(subject.value) ? '#faf5ff' : 'inherit'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={setupData.subjects.includes(subject.value)}
-                      onChange={() => handleSubjectToggle(subject.value)}
-                      className="w-5 h-5 text-secondary-600"
-                    />
-                    <span className="ml-3 text-surface-800">{subject.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-linear-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-lg hover:from-primary-700 hover:to-primary-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            >
-              {isSubmitting ? 'Setting up...' : 'Complete Setup'}
-            </button>
-          </form>
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-slate-600">
+            {STEPS.map(step => (
+              <span key={step.id} className="w-8 text-center">{step.title}</span>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+          {/* Step Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-6 text-white">
+            <h1 className="text-2xl font-bold mb-1">{STEPS[currentStepIndex].title}</h1>
+            <p className="text-blue-100">{STEPS[currentStepIndex].subtitle}</p>
+          </div>
+
+          {/* Step Content */}
+          <div className="p-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-700 font-medium">{error}</p>
+              </div>
+            )}
+
+            {/* Step 1: Accessibility */}
+            {currentStep === 'accessibility' && (
+              <div className="space-y-4">
+                <p className="text-slate-600 mb-6">
+                  Select any accessibility needs you have. This helps us customize your learning experience.
+                  You can skip this step if none apply.
+                </p>
+                <div className="grid gap-4">
+                  {accessibilityOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => toggleDisability(option.id)}
+                      className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
+                        setupData.disabilities.includes(option.id)
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <span className="text-3xl">{option.icon}</span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-slate-900 mb-1">{option.name}</h3>
+                          <p className="text-sm text-slate-600">{option.description}</p>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                          setupData.disabilities.includes(option.id)
+                            ? 'border-blue-500 bg-blue-500 text-white'
+                            : 'border-slate-300'
+                        }`}>
+                          {setupData.disabilities.includes(option.id) && '✓'}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-500 mt-4">
+                  💡 Tip: You can select multiple options or none at all.
+                </p>
+              </div>
+            )}
+
+            {/* Step 2: Curriculum */}
+            {currentStep === 'curriculum' && (
+              <div className="space-y-4">
+                <p className="text-slate-600 mb-6">
+                  Choose your education board. We'll show you content tailored to your curriculum.
+                </p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {curricula.map((curriculum) => (
+                    <button
+                      key={curriculum.id}
+                      onClick={() => selectCurriculum(curriculum.id)}
+                      className={`p-6 rounded-xl border-2 text-left transition-all ${
+                        setupData.curriculumId === curriculum.id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <h3 className="font-bold text-lg text-slate-900 mb-2">{curriculum.name}</h3>
+                      <p className="text-sm text-slate-600">{curriculum.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Grade */}
+            {currentStep === 'grade' && (
+              <div className="space-y-4">
+                <p className="text-slate-600 mb-6">
+                  What class are you currently in? This helps us show you the right content.
+                </p>
+                {selectedCurriculum && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <span className="font-medium text-blue-800">{selectedCurriculum.name}</span>
+                  </div>
+                )}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {availableGrades.map((grade) => (
+                    <button
+                      key={grade.id}
+                      onClick={() => selectGrade(grade.id)}
+                      className={`p-6 rounded-xl border-2 text-left transition-all ${
+                        setupData.classId === grade.id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <h3 className="font-bold text-lg text-slate-900 mb-1">{grade.name}</h3>
+                      <p className="text-sm text-slate-600">{grade.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Chapters (grouped by subject) */}
+            {currentStep === 'chapters' && (
+              <div className="space-y-4">
+                <p className="text-slate-600 mb-6">
+                  Select the chapters you want to study. Expand each subject to see available chapters.
+                </p>
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
+                  <span className="font-medium text-blue-800">{selectedCurriculum?.name}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="font-medium text-blue-800">
+                    {availableGrades.find(g => g.id === setupData.classId)?.name}
+                  </span>
+                </div>
+                
+                {isLoadingSubjects ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-slate-500">Loading chapters...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {subjectsWithChapters.map((subject) => {
+                      const isExpanded = expandedSubjects.has(subject.id);
+                      const selectedCount = getSelectedCountForSubject(subject);
+                      const allSelected = selectedCount === subject.chapters.length && subject.chapters.length > 0;
+                      
+                      return (
+                        <div key={subject.id} className="border-2 border-slate-200 rounded-xl overflow-hidden">
+                          {/* Subject Header */}
+                          <div 
+                            className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${
+                              selectedCount > 0 ? 'bg-green-50' : 'bg-slate-50 hover:bg-slate-100'
+                            }`}
+                            onClick={() => toggleSubjectExpanded(subject.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                                ▶
+                              </span>
+                              <div>
+                                <h3 className="font-bold text-slate-900">{subject.name}</h3>
+                                <p className="text-xs text-slate-500">
+                                  {subject.chapters.length} chapters
+                                  {selectedCount > 0 && (
+                                    <span className="text-green-600 ml-2">
+                                      ({selectedCount} selected)
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleAllChaptersInSubject(subject);
+                              }}
+                              className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                allSelected
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                              }`}
+                            >
+                              {allSelected ? 'Deselect All' : 'Select All'}
+                            </button>
+                          </div>
+                          
+                          {/* Chapters List */}
+                          {isExpanded && (
+                            <div className="p-4 pt-0 grid gap-2">
+                              {subject.chapters.map((chapter) => (
+                                <button
+                                  key={chapter.id}
+                                  onClick={() => toggleChapter(chapter.id)}
+                                  className={`p-3 rounded-lg border text-left transition-all flex items-center gap-3 ${
+                                    setupData.chapterIds.includes(chapter.id)
+                                      ? 'border-green-500 bg-green-50'
+                                      : 'border-slate-200 hover:border-green-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center text-xs ${
+                                    setupData.chapterIds.includes(chapter.id)
+                                      ? 'border-green-500 bg-green-500 text-white'
+                                      : 'border-slate-300'
+                                  }`}>
+                                    {setupData.chapterIds.includes(chapter.id) && '✓'}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-medium text-slate-900 text-sm">{chapter.name}</h4>
+                                    <p className="text-xs text-slate-500">{chapter.description}</p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Selected Summary */}
+                {setupData.chapterIds.length > 0 && (
+                  <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                    <p className="text-sm font-medium text-slate-700 mb-3">
+                      Selected chapters ({setupData.chapterIds.length}):
+                    </p>
+                    <div className="space-y-2">
+                      {getSelectedChaptersBySubject().map(({ subject, chapters }) => (
+                        <div key={subject.id} className="flex flex-wrap gap-2 items-center">
+                          <span className="text-sm font-semibold text-slate-600">{subject.name}:</span>
+                          {chapters.map(c => (
+                            <span key={c.id} className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                              {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="px-8 py-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <button
+              onClick={goToPrevStep}
+              disabled={!canGoPrev}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                canGoPrev 
+                  ? 'text-slate-700 hover:bg-slate-200' 
+                  : 'text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              ← Back
+            </button>
+
+            {isLastStep ? (
+              <button
+                onClick={handleSubmit}
+                disabled={!canGoNext || isSubmitting}
+                className={`px-8 py-3 rounded-lg font-semibold transition-all ${
+                  canGoNext && !isSubmitting
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                {isSubmitting ? 'Setting up...' : 'Complete Setup ✓'}
+              </button>
+            ) : (
+              <button
+                onClick={goToNextStep}
+                disabled={!canGoNext && currentStep !== 'accessibility'}
+                className={`px-8 py-3 rounded-lg font-semibold transition-all ${
+                  canGoNext || currentStep === 'accessibility'
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                {currentStep === 'accessibility' && setupData.disabilities.length === 0 
+                  ? 'Skip →' 
+                  : 'Continue →'}
+              </button>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

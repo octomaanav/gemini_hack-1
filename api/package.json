@@ -7,7 +7,9 @@
     "generate:db": "drizzle-kit generate",
     "migrate:db": "drizzle-kit migrate",
     "push:db": "drizzle-kit push",
-    "studio:db": "drizzle-kit studio"
+    "studio:db": "drizzle-kit studio",
+    "seed": "tsx src/db/seed.ts",
+    "seed:lessons": "tsx src/db/seedLessons.ts"
   },
   "keywords": [],
   "author": "",

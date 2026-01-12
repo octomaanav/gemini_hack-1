@@ -2,10 +2,10 @@ import { Router } from "express";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { db } from "../db/index.js";
-import { users } from "../db/schema.js";
+import { users, userChapters } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { uuid } from "uuidv4";
-import type { User } from "../types/user.js";
+import type { User } from "../../types/index.js";
 
 const accountsRouter = Router();
 
@@ -114,35 +114,58 @@ accountsRouter.put("/me", async (req, res) => {
   }
 
   try {
-    const { disabilities, grade, curriculum, subjects } = req.body;
+    const { profile, curriculumId, classId } = req.body;
     const user = req.user as User;
 
-    // Validate required fields
-    if (!Array.isArray(disabilities) || disabilities.length === 0) {
-      return res.status(400).json({ error: "At least one disability is required" });
+    // Validate required fields for new profile structure
+    if (!profile) {
+      return res.status(400).json({ error: "Profile data is required" });
     }
-    if (!grade) {
-      return res.status(400).json({ error: "Grade is required" });
-    }
-    if (!curriculum) {
+    if (!profile.curriculumId) {
       return res.status(400).json({ error: "Curriculum is required" });
     }
-    if (!Array.isArray(subjects) || subjects.length === 0) {
-      return res.status(400).json({ error: "At least one subject is required" });
+    if (!profile.classId) {
+      return res.status(400).json({ error: "Class is required" });
+    }
+    if (!Array.isArray(profile.chapterIds) || profile.chapterIds.length === 0) {
+      return res.status(400).json({ error: "At least one chapter is required" });
     }
 
-    // Update user in DB
+    // Get user ID from email
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, user.email))
+      .limit(1);
+
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update user in DB with new schema
     const [updatedUser] = await db
       .update(users)
       .set({
-        disabilities,
-        grade,
-        curriculum,
-        subjects,
-        isProfileComplete: true
+        profile: profile,
+        curriculumId: curriculumId || profile.curriculumId,
+        classId: classId || profile.classId,
+        isProfileComplete: true,
+        updatedAt: new Date()
       })
       .where(eq(users.email, user.email))
       .returning();
+
+    // Update user chapters (delete old, insert new)
+    await db.delete(userChapters).where(eq(userChapters.userId, existingUser.id));
+    
+    if (profile.chapterIds.length > 0) {
+      await db.insert(userChapters).values(
+        profile.chapterIds.map((chapterId: string) => ({
+          userId: existingUser.id,
+          chapterId,
+        }))
+      );
+    }
 
     console.log('Updated user:', updatedUser);
     

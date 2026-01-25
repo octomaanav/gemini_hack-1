@@ -158,15 +158,34 @@ function AdminUploadPage() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-primary-100/50">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-base font-bold">🔧</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white text-base font-bold">🔧</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  Admin: Content Upload
+                </h1>
+                <p className="text-sm text-surface-500">Populate subject chapters from textbook PDFs</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Admin: Content Upload
-              </h1>
-              <p className="text-sm text-surface-500">Populate subject chapters from textbook PDFs</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Admin
+              </button>
+              <button
+                onClick={() => navigate('/admin/editor')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                Manual Editor
+              </button>
             </div>
           </div>
         </div>

@@ -6,7 +6,6 @@ interface StudentProfile {
   id: string;
   name: string;
   grade: string;
-  disabilityType: 'blind' | 'deaf' | 'neurodivergent';
   preferences: {
     pace: 'slow' | 'medium' | 'fast';
     verbosity: 'concise' | 'moderate' | 'detailed';
@@ -52,8 +51,7 @@ export const Navbar = ({ currentProfile, onProfileChange, studentProfiles }: Nav
             <div className="text-right mr-4">
               <p className="text-sm font-semibold text-surface-900">{currentProfile.name}</p>
               <p className="text-xs text-surface-600">
-                {currentProfile.grade} • {currentProfile.disabilityType.charAt(0).toUpperCase() + currentProfile.disabilityType.slice(1)} • 
-                Pace: {currentProfile.preferences.pace}
+                {currentProfile.grade} • Pace: {currentProfile.preferences.pace}
               </p>
             </div>
             

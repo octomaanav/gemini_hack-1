@@ -473,4 +473,250 @@ adminRouter.get("/grade-subjects/:classId", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/lessons/:chapterId
+ * Get all lessons for a chapter (for editing)
+ */
+adminRouter.get("/lessons/:chapterId", async (req, res) => {
+  try {
+    const { chapterId } = req.params;
+
+    const lessonsList = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.chapterId, chapterId))
+      .orderBy(lessons.sortOrder);
+
+    res.json(lessonsList);
+  } catch (error) {
+    console.error("Error fetching lessons:", error);
+    res.status(500).json({ error: "Failed to fetch lessons" });
+  }
+});
+
+/**
+ * GET /api/admin/lessons/lesson/:lessonId
+ * Get a single lesson by ID
+ */
+adminRouter.get("/lessons/lesson/:lessonId", async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    const [lesson] = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.id, lessonId))
+      .limit(1);
+
+    if (!lesson) {
+      return res.status(404).json({ error: "Lesson not found" });
+    }
+
+    res.json(lesson);
+  } catch (error) {
+    console.error("Error fetching lesson:", error);
+    res.status(500).json({ error: "Failed to fetch lesson" });
+  }
+});
+
+/**
+ * POST /api/admin/lessons
+ * Create a new lesson
+ */
+adminRouter.post("/lessons", async (req, res) => {
+  try {
+    const { chapterId, slug, title, content, sortOrder } = req.body;
+
+    if (!chapterId || !slug || !title || !content) {
+      return res.status(400).json({ 
+        error: "chapterId, slug, title, and content are required" 
+      });
+    }
+
+    // Check if lesson with same slug exists in chapter
+    const [existingLesson] = await db
+      .select()
+      .from(lessons)
+      .where(and(
+        eq(lessons.chapterId, chapterId),
+        eq(lessons.slug, slug)
+      ))
+      .limit(1);
+
+    if (existingLesson) {
+      return res.status(400).json({ 
+        error: "A lesson with this slug already exists in this chapter" 
+      });
+    }
+
+    // Get max sortOrder for this chapter
+    const existingLessons = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.chapterId, chapterId));
+
+    const maxSortOrder = existingLessons.length > 0
+      ? Math.max(...existingLessons.map(l => l.sortOrder))
+      : 0;
+
+    const [newLesson] = await db
+      .insert(lessons)
+      .values({
+        chapterId,
+        slug,
+        title,
+        content,
+        sortOrder: sortOrder || maxSortOrder + 1,
+      })
+      .returning();
+
+    res.status(201).json(newLesson);
+  } catch (error) {
+    console.error("Error creating lesson:", error);
+    res.status(500).json({ error: "Failed to create lesson" });
+  }
+});
+
+/**
+ * PUT /api/admin/lessons/:lessonId
+ * Update an existing lesson
+ */
+adminRouter.put("/lessons/:lessonId", async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const { title, content, sortOrder, slug } = req.body;
+
+    const [existingLesson] = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.id, lessonId))
+      .limit(1);
+
+    if (!existingLesson) {
+      return res.status(404).json({ error: "Lesson not found" });
+    }
+
+    // If slug is being changed, check for conflicts
+    if (slug && slug !== existingLesson.slug) {
+      const [conflictLesson] = await db
+        .select()
+        .from(lessons)
+        .where(and(
+          eq(lessons.chapterId, existingLesson.chapterId),
+          eq(lessons.slug, slug),
+          // Exclude current lesson
+        ))
+        .limit(1);
+
+      if (conflictLesson && conflictLesson.id !== lessonId) {
+        return res.status(400).json({ 
+          error: "A lesson with this slug already exists in this chapter" 
+        });
+      }
+    }
+
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    if (title !== undefined) updateData.title = title;
+    if (content !== undefined) updateData.content = content;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (slug !== undefined) updateData.slug = slug;
+
+    const [updatedLesson] = await db
+      .update(lessons)
+      .set(updateData)
+      .where(eq(lessons.id, lessonId))
+      .returning();
+
+    res.json(updatedLesson);
+  } catch (error) {
+    console.error("Error updating lesson:", error);
+    res.status(500).json({ error: "Failed to update lesson" });
+  }
+});
+
+/**
+ * DELETE /api/admin/lessons/:lessonId
+ * Delete a lesson
+ */
+adminRouter.delete("/lessons/:lessonId", async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+
+    const [existingLesson] = await db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.id, lessonId))
+      .limit(1);
+
+    if (!existingLesson) {
+      return res.status(404).json({ error: "Lesson not found" });
+    }
+
+    await db
+      .delete(lessons)
+      .where(eq(lessons.id, lessonId));
+
+    res.json({ success: true, message: "Lesson deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting lesson:", error);
+    res.status(500).json({ error: "Failed to delete lesson" });
+  }
+});
+
+/**
+ * POST /api/admin/generate-image
+ * Generate an image using Gemini's Imagen model
+ * 
+ * Body:
+ * {
+ *   prompt: string,        // Description of the image to generate
+ *   numberOfImages?: number // Optional, 1-4 (default: 1)
+ * }
+ * 
+ * Returns:
+ * {
+ *   success: boolean,
+ *   images: string[],      // Array of base64-encoded image data
+ *   dataUrls?: string[]    // Array of data URLs (data:image/png;base64,...)
+ * }
+ */
+adminRouter.post("/generate-image", async (req, res) => {
+  try {
+    const { prompt, numberOfImages = 1 } = req.body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return res.status(400).json({ 
+        error: "prompt is required and must be a non-empty string" 
+      });
+    }
+
+    if (numberOfImages < 1 || numberOfImages > 4) {
+      return res.status(400).json({ 
+        error: "numberOfImages must be between 1 and 4" 
+      });
+    }
+
+    const { generateImage } = await import("../utils/imageGen.js");
+    const imageData = await generateImage(prompt.trim(), numberOfImages);
+
+    // Convert to data URLs for easier use in frontend
+    const dataUrls = imageData.map(img => `data:image/png;base64,${img}`);
+
+    res.json({
+      success: true,
+      images: imageData,
+      dataUrls: dataUrls,
+      count: imageData.length
+    });
+  } catch (error) {
+    console.error("Error generating image:", error);
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : "Failed to generate image" 
+    });
+  }
+});
+
 export default adminRouter;

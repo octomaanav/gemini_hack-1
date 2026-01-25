@@ -5,7 +5,6 @@ interface StudentProfile {
   id: string;
   name: string;
   grade: string;
-  disabilityType: 'blind' | 'deaf' | 'neurodivergent';
   preferences: {
     pace: 'slow' | 'medium' | 'fast';
     verbosity: 'concise' | 'moderate' | 'detailed';

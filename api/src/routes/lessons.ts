@@ -1,11 +1,47 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { chapters, lessons as lessonsTable } from "../db/schema.js";
+import { chapters, lessons as lessonsTable, classes, curricula } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import type { Unit, UnitLessons, Book } from "../../types/index.js";
+import type { Unit, UnitLessons, Book, StructuredChapter, StructuredCurriculum } from "../../types/index.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const lessonsRouter = Router();
+
+/**
+ * Helper function to resolve classId (UUID or slug) to curriculum_class format for file lookup
+ */
+async function resolveClassToFilePrefix(classIdOrSlug: string): Promise<string | null> {
+  // Check if it looks like a UUID
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classIdOrSlug);
+  
+  if (isUUID) {
+    // Look up class by UUID
+    const [classEntity] = await db
+      .select({
+        classSlug: classes.slug,
+        curriculumSlug: curricula.slug,
+      })
+      .from(classes)
+      .innerJoin(curricula, eq(curricula.id, classes.curriculumId))
+      .where(eq(classes.id, classIdOrSlug))
+      .limit(1);
+    
+    if (!classEntity) return null;
+    
+    // Convert class-11 to class11 for filename
+    const classSlugForFile = classEntity.classSlug.replace('-', '');
+    return `${classEntity.curriculumSlug}_${classSlugForFile}`;
+  }
+  
+  // Assume it's already in the correct format (e.g., cbse_class11)
+  return classIdOrSlug;
+}
 
 /**
  * Generate the lesson prompt for a given unit
@@ -405,6 +441,450 @@ lessonsRouter.post("/generate", async (req, res) => {
     }
     res.status(500).json({ 
       error: "Failed to generate lessons",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// =============================================================================
+// STRUCTURED CURRICULUM GENERATION
+// =============================================================================
+
+/**
+ * Generate the structured curriculum prompt for a given unit
+ * This produces output in the StructuredChapter format with microsections
+ */
+const getStructuredPrompt = (unit: Unit): string => {
+  return `You are an expert STEM educator and curriculum designer.
+
+Task:
+Generate a **structured chapter** with multiple **sections**, where each section contains multiple **microsections** (article, video placeholder, quiz, practice).
+
+The structure should be:
+- Chapter (the entire unit)
+  - Section (a topic within the unit)
+    - Microsection: Article (main content with concepts, examples, summary)
+    - Microsection: Video (placeholder with title and description)
+    - Microsection: Quiz (3-5 multiple choice/true-false questions)
+    - Microsection: Practice (2-4 practice problems with explanations)
+
+Input JSON:
+${JSON.stringify({ unit })}
+
+Output JSON (EXACTLY this structure):
+{
+  "chapterId": "<slugified-chapter-id>",
+  "chapterTitle": "<unitTitle>",
+  "chapterDescription": "<unitDescription>",
+  "sections": [
+    {
+      "id": "<section-id>",
+      "slug": "<section-slug>",
+      "title": "<section title>",
+      "description": "<brief section description>",
+      "sortOrder": 1,
+      "microsections": [
+        {
+          "id": "<unique-id>",
+          "type": "article",
+          "title": "<article title>",
+          "sortOrder": 1,
+          "estimatedMinutes": 10,
+          "content": {
+            "introduction": "<introduction text>",
+            "coreConcepts": [
+              {
+                "conceptTitle": "<concept name>",
+                "explanation": "<detailed explanation with LaTeX formulas>",
+                "example": "<worked example>",
+                "diagramDescription": "<description of visual aid>"
+              }
+            ],
+            "summary": ["<key point 1>", "<key point 2>"],
+            "quickCheckQuestions": [
+              {"question": "<question>", "answer": "<answer>"}
+            ]
+          }
+        },
+        {
+          "id": "<unique-id>",
+          "type": "video",
+          "title": "<video title>",
+          "sortOrder": 2,
+          "estimatedMinutes": 8,
+          "content": {
+            "id": "<video-id>",
+            "title": "<video title>",
+            "description": "<what this video would cover>",
+            "url": "",
+            "duration": 480
+          }
+        },
+        {
+          "id": "<unique-id>",
+          "type": "quiz",
+          "title": "<quiz title>",
+          "sortOrder": 3,
+          "estimatedMinutes": 5,
+          "content": {
+            "id": "<quiz-id>",
+            "title": "<quiz title>",
+            "description": "<quiz description>",
+            "questions": [
+              {
+                "id": "<q-id>",
+                "question": "<question text>",
+                "type": "multiple-choice",
+                "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
+                "correctAnswer": 0,
+                "explanation": "<why this is correct>",
+                "points": 1
+              },
+              {
+                "id": "<q-id>",
+                "question": "<true/false question>",
+                "type": "true-false",
+                "correctAnswer": "true",
+                "explanation": "<explanation>",
+                "points": 1
+              }
+            ],
+            "timeLimit": 5
+          }
+        },
+        {
+          "id": "<unique-id>",
+          "type": "practice",
+          "title": "<practice title>",
+          "sortOrder": 4,
+          "estimatedMinutes": 10,
+          "content": {
+            "id": "<practice-id>",
+            "title": "<practice title>",
+            "description": "<practice description>",
+            "questions": [
+              {
+                "id": "<p-id>",
+                "question": "<practice problem>",
+                "type": "multiple-choice",
+                "options": ["<option A>", "<option B>", "<option C>", "<option D>"],
+                "correctAnswer": 1,
+                "explanation": "<detailed solution explanation>",
+                "points": 2
+              },
+              {
+                "id": "<p-id>",
+                "question": "<short answer problem>",
+                "type": "short-answer",
+                "correctAnswer": "<expected answer>",
+                "explanation": "<how to arrive at the answer>",
+                "points": 2
+              }
+            ],
+            "allowRetry": true,
+            "showExplanations": true
+          }
+        }
+      ]
+    }
+  ]
+}
+
+Instructions:
+- Create one section for each input section in the unit
+- Each section MUST have all 4 microsection types: article, video, quiz, practice
+- Article microsection: Include 2-4 core concepts with detailed explanations (200-400 words each)
+- Video microsection: Provide placeholder with relevant title and description
+- Quiz microsection: Include 3-5 questions (mix of multiple-choice and true-false)
+- Practice microsection: Include 2-4 harder problems with detailed explanations
+- Use LaTeX for all formulas (double-escaped: \\\\frac{a}{b})
+- Generate unique IDs for each element (e.g., "section-1", "1-1-article", "q1-1-1")
+- Slugify section IDs (e.g., "what-is-physics", "scalars-and-vectors")
+- Cover ALL learning goals from the input
+- Make quiz questions test understanding, practice questions test application
+
+CRITICAL JSON RULES:
+- Output MUST be valid strict JSON parsable by JSON.parse()
+- Escape ALL backslashes in LaTeX using double backslashes (\\\\)
+- Example: use "\\\\Delta x", "\\\\frac{a}{b}", "\\\\text{m/s}"
+- Do NOT output raw LaTeX with single backslashes
+- Do NOT include markdown code fences`;
+};
+
+/**
+ * Generate structured curriculum for a single unit using Gemini
+ */
+const generateStructuredForUnit = async (unit: Unit): Promise<StructuredChapter | null> => {
+  const prompt = getStructuredPrompt(unit);
+  const promptSize = new Blob([prompt]).size;
+  console.log(`Structured prompt size for unit "${unit.unitTitle}": ${(promptSize / 1024).toFixed(2)} KB`);
+  
+  if (promptSize > 100 * 1024) {
+    console.warn(`⚠️  Large prompt detected (${(promptSize / 1024).toFixed(2)} KB). This may exceed token limits.`);
+  }
+  
+  return callGeminiJson<StructuredChapter>(prompt);
+};
+
+/**
+ * POST /api/lessons/generate-structured
+ * Generate structured curriculum with microsections from a book (array of units)
+ */
+lessonsRouter.post("/generate-structured", async (req, res) => {
+  try {
+    console.log("=== Structured Curriculum Generation Request Received ===");
+    
+    if (!hasGeminiApiKey()) {
+      console.error("Gemini API key not configured");
+      return res.status(500).json({ 
+        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable." 
+      });
+    }
+
+    const book = req.body as Book;
+
+    if (!Array.isArray(book) || book.length === 0) {
+      console.error("Invalid input: book is not an array or is empty");
+      return res.status(400).json({ 
+        error: "Invalid input. Expected an array of units" 
+      });
+    }
+
+    console.log(`Processing ${book.length} units for structured curriculum generation`);
+
+    // Validate all units before processing
+    for (let i = 0; i < book.length; i++) {
+      const unit = book[i];
+      if (!unit.unitTitle || !unit.sections || !Array.isArray(unit.sections)) {
+        return res.status(400).json({ 
+          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.` 
+        });
+      }
+      if (unit.sections.length === 0) {
+        return res.status(400).json({ error: `Unit "${unit.unitTitle}" has no sections` });
+      }
+    }
+
+    const structuredChapters: StructuredChapter[] = [];
+    
+    for (let i = 0; i < book.length; i++) {
+      const unit = book[i];
+      console.log(`[${i + 1}/${book.length}] Generating structured curriculum for: "${unit.unitTitle}"...`);
+      
+      try {
+        const startTime = Date.now();
+        const chapter = await generateStructuredForUnit(unit);
+        const duration = Date.now() - startTime;
+        
+        if (!chapter) {
+          console.error(`[${i + 1}/${book.length}] Failed to generate for unit: "${unit.unitTitle}"`);
+          return res.status(500).json({ 
+            error: `Failed to generate structured curriculum for unit: "${unit.unitTitle}"`,
+            failedUnit: unit.unitTitle,
+            completedUnits: structuredChapters.length,
+            totalUnits: book.length
+          });
+        }
+        
+        // Validate structure
+        if (!chapter.chapterId || !chapter.chapterTitle || !Array.isArray(chapter.sections)) {
+          console.error(`[${i + 1}/${book.length}] Invalid chapter structure for: "${unit.unitTitle}"`);
+          return res.status(500).json({ 
+            error: `Invalid chapter structure returned for unit: "${unit.unitTitle}"`,
+            failedUnit: unit.unitTitle,
+            completedUnits: structuredChapters.length,
+            totalUnits: book.length
+          });
+        }
+        
+        console.log(`[${i + 1}/${book.length}] ✓ Generated ${chapter.sections.length} sections for "${unit.unitTitle}" (took ${(duration / 1000).toFixed(1)}s)`);
+        structuredChapters.push(chapter);
+      } catch (unitError) {
+        console.error(`[${i + 1}/${book.length}] Error generating for unit "${unit.unitTitle}":`, unitError);
+        return res.status(500).json({ 
+          error: `Failed to generate structured curriculum for unit: "${unit.unitTitle}"`,
+          failedUnit: unit.unitTitle,
+          completedUnits: structuredChapters.length,
+          totalUnits: book.length,
+          details: unitError instanceof Error ? unitError.message : String(unitError)
+        });
+      }
+    }
+
+    console.log(`=== Structured Curriculum Generation Complete: ${structuredChapters.length} chapters ===`);
+    res.json(structuredChapters);
+  } catch (error) {
+    console.error("=== Fatal Error in Structured Curriculum Generation ===", error);
+    res.status(500).json({ 
+      error: "Failed to generate structured curriculum",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// =============================================================================
+// STRUCTURED CURRICULUM ENDPOINTS
+// =============================================================================
+
+/**
+ * GET /api/lessons/structured/:classId/:subjectId
+ * Get all chapters for a subject in structured format
+ */
+lessonsRouter.get("/structured/:classId/:subjectId", async (req, res) => {
+  try {
+    const { classId, subjectId } = req.params;
+    
+    // Resolve classId (UUID or slug) to file prefix
+    const filePrefix = await resolveClassToFilePrefix(classId);
+    if (!filePrefix) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+    
+    // Load the structured curriculum JSON file
+    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
+    
+    if (!fs.existsSync(dataPath)) {
+      // Fallback to generic file
+      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
+      if (!fs.existsSync(fallbackPath)) {
+        return res.status(404).json({ error: "Structured curriculum data not found" });
+      }
+      const data: StructuredCurriculum = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+      return res.json(data);
+    }
+    
+    const data: StructuredCurriculum = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    res.json(data);
+  } catch (error) {
+    console.error("Error loading structured curriculum data:", error);
+    res.status(500).json({ 
+      error: "Failed to load structured curriculum data",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * GET /api/lessons/structured/:classId/:subjectId/:chapterSlug
+ * Get a specific chapter in structured format
+ */
+lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug", async (req, res) => {
+  try {
+    const { classId, subjectId, chapterSlug } = req.params;
+    
+    // Resolve classId (UUID or slug) to file prefix
+    const filePrefix = await resolveClassToFilePrefix(classId);
+    if (!filePrefix) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+    
+    // Load the structured curriculum JSON file
+    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
+    
+    let data: StructuredCurriculum;
+    
+    if (!fs.existsSync(dataPath)) {
+      // Fallback to generic file
+      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
+      if (!fs.existsSync(fallbackPath)) {
+        return res.status(404).json({ error: "Structured curriculum data not found" });
+      }
+      data = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+    } else {
+      data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    }
+    
+    // Find the chapter by slug
+    const chapter = data.find(c => c.chapterId === chapterSlug);
+    
+    if (!chapter) {
+      return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
+    }
+    
+    res.json(chapter);
+  } catch (error) {
+    console.error("Error loading structured chapter:", error);
+    res.status(500).json({ 
+      error: "Failed to load structured chapter",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * GET /api/lessons/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId
+ * Get a specific microsection in structured format
+ */
+lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId", async (req, res) => {
+  try {
+    const { classId, subjectId, chapterSlug, sectionSlug, microsectionId } = req.params;
+    
+    // Resolve classId (UUID or slug) to file prefix
+    const filePrefix = await resolveClassToFilePrefix(classId);
+    if (!filePrefix) {
+      return res.status(404).json({ error: "Class not found" });
+    }
+    
+    // Load the structured curriculum JSON file
+    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
+    
+    let data: StructuredCurriculum;
+    
+    if (!fs.existsSync(dataPath)) {
+      // Fallback to generic file
+      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
+      if (!fs.existsSync(fallbackPath)) {
+        return res.status(404).json({ error: "Structured curriculum data not found" });
+      }
+      data = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+    } else {
+      data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    }
+    
+    // Find the chapter
+    const chapter = data.find(c => c.chapterId === chapterSlug);
+    if (!chapter) {
+      return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
+    }
+    
+    // Find the section
+    const section = chapter.sections.find(s => s.slug === sectionSlug);
+    if (!section) {
+      return res.status(404).json({ error: `Section '${sectionSlug}' not found` });
+    }
+    
+    // Find the microsection
+    const microsection = section.microsections.find(m => m.id === microsectionId);
+    if (!microsection) {
+      return res.status(404).json({ error: `Microsection '${microsectionId}' not found` });
+    }
+    
+    // Return microsection with additional context
+    res.json({
+      chapter: {
+        chapterId: chapter.chapterId,
+        chapterTitle: chapter.chapterTitle,
+      },
+      section: {
+        id: section.id,
+        slug: section.slug,
+        title: section.title,
+      },
+      microsection,
+      // Include navigation info (prev/next microsections)
+      navigation: {
+        sectionMicrosections: section.microsections.map(m => ({
+          id: m.id,
+          type: m.type,
+          title: m.title,
+        })),
+        currentIndex: section.microsections.findIndex(m => m.id === microsectionId),
+      }
+    });
+  } catch (error) {
+    console.error("Error loading microsection:", error);
+    res.status(500).json({ 
+      error: "Failed to load microsection",
       details: error instanceof Error ? error.message : String(error)
     });
   }

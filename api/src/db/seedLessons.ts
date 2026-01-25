@@ -4,12 +4,26 @@ import { eq, and } from "drizzle-orm";
 import { readdir, readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import type { UnitLessons } from "../../types/index.js";
+import type { StructuredChapter, UnitLessons } from "../../types/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const LESSONS_DATA_DIR = join(__dirname, "../../data/lessons");
+
+// Type guard to check if data is in old format (UnitLessons[])
+function isOldFormat(data: unknown[]): data is UnitLessons[] {
+  if (data.length === 0) return false;
+  const first = data[0] as Record<string, unknown>;
+  return 'unitTitle' in first && 'lessons' in first;
+}
+
+// Type guard to check if data is in new structured format (StructuredChapter[])
+function isStructuredFormat(data: unknown[]): data is StructuredChapter[] {
+  if (data.length === 0) return false;
+  const first = data[0] as Record<string, unknown>;
+  return 'chapterId' in first && 'chapterTitle' in first && 'sections' in first;
+}
 
 export async function seedLessons() {
   try {
@@ -31,21 +45,21 @@ export async function seedLessons() {
 
     let processedFiles = 0;
     let processedChapters = 0;
-    let processedLessons = 0;
+    let processedSections = 0;
     let errorCount = 0;
 
     for (const filename of jsonFiles) {
       try {
         const filePath = join(LESSONS_DATA_DIR, filename);
         const fileContent = await readFile(filePath, 'utf-8');
-        const unitsArray: UnitLessons[] = JSON.parse(fileContent);
+        const dataArray: unknown[] = JSON.parse(fileContent);
 
-        if (!Array.isArray(unitsArray)) {
+        if (!Array.isArray(dataArray)) {
           errorCount++;
           continue;
         }
 
-        if (unitsArray.length === 0) {
+        if (dataArray.length === 0) {
           console.warn(`Empty array in ${filename}, skipping...`);
           continue;
         }
@@ -116,100 +130,208 @@ export async function seedLessons() {
             .returning();
         }
 
-        // Process each unit in the array
-        for (let unitIndex = 0; unitIndex < unitsArray.length; unitIndex++) {
-          const unitLessons = unitsArray[unitIndex];
+        // Detect format and process accordingly
+        if (isStructuredFormat(dataArray)) {
+          // NEW STRUCTURED FORMAT (StructuredChapter[])
+          console.log(`Processing ${filename} as STRUCTURED format...`);
+          const chaptersArray = dataArray;
+          
+          for (let chapterIndex = 0; chapterIndex < chaptersArray.length; chapterIndex++) {
+            const structuredChapter = chaptersArray[chapterIndex];
 
-          // Validate unit structure
-          if (!unitLessons.unitTitle || !Array.isArray(unitLessons.lessons)) {
-            continue;
-          }
+            // Validate chapter structure
+            if (!structuredChapter.chapterTitle || !Array.isArray(structuredChapter.sections)) {
+              continue;
+            }
 
-          // Generate chapter slug from unit title
-          const chapterSlug = unitLessons.unitTitle
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
-
-          // Find or create chapter
-          let [chapter] = await db
-            .select()
-            .from(chapters)
-            .where(and(
-              eq(chapters.gradeSubjectId, gradeSubject.id),
-              eq(chapters.slug, chapterSlug)
-            ))
-            .limit(1);
-
-          if (!chapter) {
-            // Create chapter
-            [chapter] = await db
-              .insert(chapters)
-              .values({
-                gradeSubjectId: gradeSubject.id,
-                slug: chapterSlug,
-                name: unitLessons.unitTitle,
-                description: unitLessons.unitDescription || '',
-                sortOrder: unitIndex + 1,
-              })
-              .returning();
-            console.log(`Created chapter: "${unitLessons.unitTitle}"`);
-          } else {
-            // Update existing chapter
-            [chapter] = await db
-              .update(chapters)
-              .set({
-                name: unitLessons.unitTitle,
-                description: unitLessons.unitDescription || chapter.description,
-                sortOrder: unitIndex + 1,
-              })
-              .where(eq(chapters.id, chapter.id))
-              .returning();
-            console.log(`Updated chapter: "${unitLessons.unitTitle}"`);
-          }
-
-          let lessonCount = 0;
-          for (let j = 0; j < unitLessons.lessons.length; j++) {
-            const lesson = unitLessons.lessons[j];
-            
-            const lessonSlug = `${lesson.sectionId}-${lesson.title}`
+            // Generate chapter slug from chapterId or title
+            const chapterSlug = structuredChapter.chapterId || structuredChapter.chapterTitle
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-|-$/g, '');
 
-            const [existingLesson] = await db
+            // Find or create chapter
+            let [chapter] = await db
               .select()
-              .from(lessonsTable)
+              .from(chapters)
               .where(and(
-                eq(lessonsTable.chapterId, chapter.id),
-                eq(lessonsTable.slug, lessonSlug)
+                eq(chapters.gradeSubjectId, gradeSubject.id),
+                eq(chapters.slug, chapterSlug)
               ))
               .limit(1);
 
-            if (existingLesson) {
-              await db
-                .update(lessonsTable)
-                .set({
-                  title: lesson.title,
-                  content: lesson.lessonContent,
-                  sortOrder: j + 1,
-                  updatedAt: new Date(),
-                })
-                .where(eq(lessonsTable.id, existingLesson.id));
-            } else {
-              await db
-                .insert(lessonsTable)
+            if (!chapter) {
+              [chapter] = await db
+                .insert(chapters)
                 .values({
-                  chapterId: chapter.id,
-                  slug: lessonSlug,
-                  title: lesson.title,
-                  sortOrder: j + 1,
-                  content: lesson.lessonContent,
-                });
+                  gradeSubjectId: gradeSubject.id,
+                  slug: chapterSlug,
+                  name: structuredChapter.chapterTitle,
+                  description: structuredChapter.chapterDescription || '',
+                  sortOrder: chapterIndex + 1,
+                })
+                .returning();
+              console.log(`Created chapter: "${structuredChapter.chapterTitle}"`);
+            } else {
+              [chapter] = await db
+                .update(chapters)
+                .set({
+                  name: structuredChapter.chapterTitle,
+                  description: structuredChapter.chapterDescription || chapter.description,
+                  sortOrder: chapterIndex + 1,
+                })
+                .where(eq(chapters.id, chapter.id))
+                .returning();
+              console.log(`Updated chapter: "${structuredChapter.chapterTitle}"`);
             }
-            lessonCount++;
-            processedLessons++;
+            processedChapters++;
+
+            // Process sections within the chapter
+            for (let sectionIndex = 0; sectionIndex < structuredChapter.sections.length; sectionIndex++) {
+              const section = structuredChapter.sections[sectionIndex];
+              
+              const lessonSlug = section.slug || `${section.id}-${section.title}`
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+
+              // Store the entire section (with microsections) as the lesson content
+              const sectionContent = section;
+
+              const [existingLesson] = await db
+                .select()
+                .from(lessonsTable)
+                .where(and(
+                  eq(lessonsTable.chapterId, chapter.id),
+                  eq(lessonsTable.slug, lessonSlug)
+                ))
+                .limit(1);
+
+              if (existingLesson) {
+                await db
+                  .update(lessonsTable)
+                  .set({
+                    title: section.title,
+                    content: sectionContent,
+                    sortOrder: section.sortOrder || sectionIndex + 1,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(lessonsTable.id, existingLesson.id));
+              } else {
+                await db
+                  .insert(lessonsTable)
+                  .values({
+                    chapterId: chapter.id,
+                    slug: lessonSlug,
+                    title: section.title,
+                    sortOrder: section.sortOrder || sectionIndex + 1,
+                    content: sectionContent,
+                  });
+              }
+              processedSections++;
+            }
           }
+        } else if (isOldFormat(dataArray)) {
+          // OLD FORMAT (UnitLessons[])
+          console.log(`Processing ${filename} as OLD format...`);
+          const unitsArray = dataArray;
+          
+          for (let unitIndex = 0; unitIndex < unitsArray.length; unitIndex++) {
+            const unitLessons = unitsArray[unitIndex];
+
+            // Validate unit structure
+            if (!unitLessons.unitTitle || !Array.isArray(unitLessons.lessons)) {
+              continue;
+            }
+
+            // Generate chapter slug from unit title
+            const chapterSlug = unitLessons.unitTitle
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '');
+
+            // Find or create chapter
+            let [chapter] = await db
+              .select()
+              .from(chapters)
+              .where(and(
+                eq(chapters.gradeSubjectId, gradeSubject.id),
+                eq(chapters.slug, chapterSlug)
+              ))
+              .limit(1);
+
+            if (!chapter) {
+              [chapter] = await db
+                .insert(chapters)
+                .values({
+                  gradeSubjectId: gradeSubject.id,
+                  slug: chapterSlug,
+                  name: unitLessons.unitTitle,
+                  description: unitLessons.unitDescription || '',
+                  sortOrder: unitIndex + 1,
+                })
+                .returning();
+              console.log(`Created chapter: "${unitLessons.unitTitle}"`);
+            } else {
+              [chapter] = await db
+                .update(chapters)
+                .set({
+                  name: unitLessons.unitTitle,
+                  description: unitLessons.unitDescription || chapter.description,
+                  sortOrder: unitIndex + 1,
+                })
+                .where(eq(chapters.id, chapter.id))
+                .returning();
+              console.log(`Updated chapter: "${unitLessons.unitTitle}"`);
+            }
+            processedChapters++;
+
+            // Process lessons within the unit
+            for (let j = 0; j < unitLessons.lessons.length; j++) {
+              const lesson = unitLessons.lessons[j];
+              
+              const lessonSlug = `${lesson.sectionId}-${lesson.title}`
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+
+              const [existingLesson] = await db
+                .select()
+                .from(lessonsTable)
+                .where(and(
+                  eq(lessonsTable.chapterId, chapter.id),
+                  eq(lessonsTable.slug, lessonSlug)
+                ))
+                .limit(1);
+
+              if (existingLesson) {
+                await db
+                  .update(lessonsTable)
+                  .set({
+                    title: lesson.title,
+                    content: lesson.lessonContent,
+                    sortOrder: j + 1,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(lessonsTable.id, existingLesson.id));
+              } else {
+                await db
+                  .insert(lessonsTable)
+                  .values({
+                    chapterId: chapter.id,
+                    slug: lessonSlug,
+                    title: lesson.title,
+                    sortOrder: j + 1,
+                    content: lesson.lessonContent,
+                  });
+              }
+              processedSections++;
+            }
+          }
+        } else {
+          console.error(`Unknown format in ${filename}, skipping...`);
+          errorCount++;
+          continue;
         }
 
         processedFiles++;
@@ -226,7 +348,7 @@ export async function seedLessons() {
     console.log("🎉 Educational content seeding complete!");
     console.log(`📄 Files processed: ${processedFiles}/${jsonFiles.length}`);
     console.log(`📖 Chapters created/updated: ${processedChapters}`);
-    console.log(`📝 Lessons created/updated: ${processedLessons}`);
+    console.log(`📝 Sections/Lessons created/updated: ${processedSections}`);
     if (errorCount > 0) {
       console.log(`❌ Errors: ${errorCount}`);
     }

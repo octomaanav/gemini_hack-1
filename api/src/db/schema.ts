@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, boolean, uuid, jsonb, integer, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import type { UserProfile, LessonContent, UnitLessons } from "../../types/index.js";
+import type { UserProfile, LessonContentUnion, UnitLessons } from "../../types/index.js";
 
 // =============================================================================
 // USERS TABLE
@@ -105,8 +105,8 @@ export const lessons = pgTable("lessons", {
   title: text("title").notNull(),
   sortOrder: integer("sort_order").notNull(),
   
-  // Rich content stored as JSONB
-  content: jsonb("content").$type<LessonContent>().notNull(),
+  // Rich content stored as JSONB - can be legacy LessonContent or StructuredSection
+  content: jsonb("content").$type<LessonContentUnion>().notNull(),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

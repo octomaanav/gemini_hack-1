@@ -1,11 +1,10 @@
 // Curriculum data - fetched from API
-// This file provides helper functions and static accessibility options
+// This file provides helper functions
 
 import type { 
   CurriculumWithGrades, 
   GradeEntity, 
-  SubjectWithChapters,
-  AccessibilityOption 
+  SubjectWithChapters
 } from '../types';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -64,31 +63,6 @@ export async function fetchSubjectsWithChapters(
   }
   return response.json();
 }
-
-// =============================================================================
-// ACCESSIBILITY OPTIONS (Static - doesn't need DB)
-// =============================================================================
-
-export const accessibilityOptions: AccessibilityOption[] = [
-  { 
-    id: 'blind', 
-    name: 'Visual Impairment', 
-    icon: '👁️', 
-    description: 'Screen reader support, Braille output, audio descriptions' 
-  },
-  { 
-    id: 'deaf', 
-    name: 'Hearing Impairment', 
-    icon: '👂', 
-    description: 'Visual-focused content, captions, sign language support' 
-  },
-  { 
-    id: 'neurodivergent', 
-    name: 'Neurodivergent', 
-    icon: '🧠', 
-    description: 'ADHD, Autism, Dyslexia - simplified layouts, step-by-step learning' 
-  },
-];
 
 // =============================================================================
 // HELPER FUNCTIONS

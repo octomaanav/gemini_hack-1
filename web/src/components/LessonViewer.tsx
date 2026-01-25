@@ -39,6 +39,8 @@ const LessonViewerContent: React.FC<{ book: UnitLessons[]; autoStartNarration?: 
     return extractLessonText(lesson);
   }, [lesson]);
 
+  console.log(lesson);
+
   
   // Auto-start narration if requested
   useEffect(() => {
@@ -227,9 +229,18 @@ const LessonViewerContent: React.FC<{ book: UnitLessons[]; autoStartNarration?: 
                 <div style={{ fontSize: 15, color: "#475569", marginBottom: 4 }}>
                   <b>Example:</b> <MathText text={concept.example} />
                 </div>
-                <div style={{ fontSize: 14, color: "#64748b" }}>
+                <div style={{ fontSize: 14, color: "#64748b", marginBottom: 8 }}>
                   <b>Diagram:</b> {concept.diagramDescription}
                 </div>
+                {concept.diagramImageUrl && (
+                  <div style={{ marginTop: 12, borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                    <img 
+                      src={concept.diagramImageUrl} 
+                      alt={concept.diagramDescription || `Diagram for ${concept.conceptTitle}`}
+                      style={{ width: '100%', maxWidth: 500, height: 'auto', display: 'block' }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -255,6 +266,199 @@ const LessonViewerContent: React.FC<{ book: UnitLessons[]; autoStartNarration?: 
               ))}
             </ul>
           </div>
+
+          {/* Images Section */}
+          {lesson.lessonContent.images && lesson.lessonContent.images.length > 0 && (
+            <div style={{ marginTop: 32 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Images</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                {lesson.lessonContent.images.map((image, i) => (
+                  <div key={image.id || i} style={{ 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: 8, 
+                    overflow: 'hidden',
+                    background: '#fff'
+                  }}>
+                    <img 
+                      src={image.url} 
+                      alt={image.alt || image.title || 'Lesson image'} 
+                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                    />
+                    {(image.title || image.caption) && (
+                      <div style={{ padding: 12 }}>
+                        {image.title && (
+                          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{image.title}</div>
+                        )}
+                        {image.caption && (
+                          <div style={{ fontSize: 13, color: '#64748b' }}>{image.caption}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Videos Section */}
+          {lesson.lessonContent.videos && lesson.lessonContent.videos.length > 0 && (
+            <div style={{ marginTop: 32 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Videos</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {lesson.lessonContent.videos.map((video, i) => (
+                  <div key={video.id || i} style={{ 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: 8, 
+                    overflow: 'hidden',
+                    background: '#fff'
+                  }}>
+                    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                      {video.url.includes('youtube.com') || video.url.includes('youtu.be') ? (
+                        <iframe
+                          src={video.url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                          style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            width: '100%', 
+                            height: '100%',
+                            border: 'none'
+                          }}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title={video.title}
+                        />
+                      ) : video.url.includes('vimeo.com') ? (
+                        <iframe
+                          src={video.url.replace('vimeo.com/', 'player.vimeo.com/video/')}
+                          style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            width: '100%', 
+                            height: '100%',
+                            border: 'none'
+                          }}
+                          allow="autoplay; fullscreen; picture-in-picture"
+                          allowFullScreen
+                          title={video.title}
+                        />
+                      ) : (
+                        <video
+                          src={video.url}
+                          controls
+                          style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            width: '100%', 
+                            height: '100%'
+                          }}
+                          title={video.title}
+                        />
+                      )}
+                    </div>
+                    <div style={{ padding: 12 }}>
+                      <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>{video.title}</div>
+                      {video.description && (
+                        <div style={{ fontSize: 14, color: '#64748b' }}>{video.description}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quizzes Section */}
+          {lesson.lessonContent.quizzes && lesson.lessonContent.quizzes.length > 0 && (
+            <div style={{ marginTop: 32 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Quizzes</div>
+              {lesson.lessonContent.quizzes.map((quiz, quizIdx) => (
+                <div key={quiz.id || quizIdx} style={{ 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: 8, 
+                  padding: 16,
+                  marginBottom: 16,
+                  background: '#fff'
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 4 }}>{quiz.title}</div>
+                  {quiz.description && (
+                    <div style={{ fontSize: 14, color: '#64748b', marginBottom: 12 }}>{quiz.description}</div>
+                  )}
+                  {quiz.timeLimit && (
+                    <div style={{ fontSize: 13, color: '#f59e0b', marginBottom: 12 }}>
+                      ⏱️ Time Limit: {quiz.timeLimit} minutes
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {quiz.questions.map((question, qIdx) => (
+                      <div key={question.id || qIdx} style={{ 
+                        padding: 12, 
+                        background: '#f8fafc', 
+                        borderRadius: 6,
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ fontWeight: 500, marginBottom: 8 }}>
+                          {qIdx + 1}. <MathText text={question.question} />
+                        </div>
+                        {question.type === 'multiple-choice' && question.options && (
+                          <div style={{ marginLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {question.options.map((option, optIdx) => (
+                              <div key={optIdx} style={{ 
+                                fontSize: 14, 
+                                padding: '6px 10px',
+                                background: '#fff',
+                                borderRadius: 4,
+                                border: '1px solid #e2e8f0'
+                              }}>
+                                {String.fromCharCode(65 + optIdx)}. {option}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {question.type === 'true-false' && (
+                          <div style={{ marginLeft: 16, display: 'flex', gap: 12 }}>
+                            <div style={{ fontSize: 14, padding: '6px 16px', background: '#fff', borderRadius: 4, border: '1px solid #e2e8f0' }}>True</div>
+                            <div style={{ fontSize: 14, padding: '6px 16px', background: '#fff', borderRadius: 4, border: '1px solid #e2e8f0' }}>False</div>
+                          </div>
+                        )}
+                        {question.points && (
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                            Points: {question.points}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Notes Section */}
+          {lesson.lessonContent.notes && lesson.lessonContent.notes.length > 0 && (
+            <div style={{ marginTop: 32 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>Notes</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {lesson.lessonContent.notes.map((note, i) => (
+                  <div key={note.id || i} style={{ 
+                    border: '1px solid #fbbf24', 
+                    borderRadius: 8, 
+                    padding: 16,
+                    background: '#fffbeb'
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: '#92400e' }}>
+                      📝 {note.title}
+                    </div>
+                    <div style={{ fontSize: 14, color: '#78350f', whiteSpace: 'pre-wrap' }}>
+                      <MathText text={note.content} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
   );

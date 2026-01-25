@@ -6,7 +6,6 @@ export interface UserProfile {
   curriculumId: string;
   classId: string;
   chapterIds: string[];
-  disabilities: string[];
 }
 
 export interface User {
@@ -102,22 +101,72 @@ export interface ChapterWithLessons extends ChapterEntity {
   lessons: LessonEntity[];
 }
 
-export interface AccessibilityOption {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-}
 
 // =============================================================================
 // LESSON & CONTENT TYPES
 // =============================================================================
+
+// Microsection types - individual content pieces within a section
+export type MicrosectionType = 'article' | 'video' | 'quiz' | 'practice';
+
+export type MicrosectionStatus = 'not-started' | 'in-progress' | 'completed';
+
+export interface BaseMicrosection {
+  id: string;
+  type: MicrosectionType;
+  title: string;
+  sortOrder: number;
+  estimatedMinutes?: number;
+}
+
+export interface ArticleMicrosection extends BaseMicrosection {
+  type: 'article';
+  content: ArticleContent;
+}
+
+export interface VideoMicrosection extends BaseMicrosection {
+  type: 'video';
+  content: VideoContent;
+}
+
+export interface QuizMicrosection extends BaseMicrosection {
+  type: 'quiz';
+  content: Quiz;
+}
+
+export interface PracticeMicrosection extends BaseMicrosection {
+  type: 'practice';
+  content: PracticeContent;
+}
+
+export type Microsection = ArticleMicrosection | VideoMicrosection | QuizMicrosection | PracticeMicrosection;
+
+// Article content - the main lesson/lecture content
+export interface ArticleContent {
+  introduction: string;
+  coreConcepts: CoreConcept[];
+  summary: string[];
+  quickCheckQuestions: QuickCheckQuestion[];
+  images?: ImageContent[];
+  notes?: NoteContent[];
+}
+
+// Practice content - practice problems/exercises
+export interface PracticeContent {
+  id: string;
+  title: string;
+  description?: string;
+  questions: QuizQuestion[];
+  allowRetry?: boolean;
+  showExplanations?: boolean;
+}
 
 export interface CoreConcept {
   conceptTitle: string;
   explanation: string;
   example: string;
   diagramDescription: string;
+  diagramImageUrl?: string; // Base64 data URL or external URL for generated diagram
 }
 
 export interface QuickCheckQuestion {
@@ -125,23 +174,125 @@ export interface QuickCheckQuestion {
   answer: string;
 }
 
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'multiple-choice' | 'true-false' | 'short-answer' | 'essay';
+  options?: string[];
+  correctAnswer: string | number;
+  explanation?: string;
+  points?: number;
+}
+
+export interface Quiz {
+  id: string;
+  title: string;
+  description?: string;
+  questions: QuizQuestion[];
+  timeLimit?: number;
+}
+
+export interface VideoContent {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  transcript?: string;
+}
+
+export interface ImageContent {
+  id: string;
+  title?: string;
+  url: string;
+  alt?: string;
+  caption?: string;
+}
+
+export interface NoteContent {
+  id: string;
+  title: string;
+  content: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// LessonContent - legacy format for backward compatibility
 export interface LessonContent {
   introduction: string;
   coreConcepts: CoreConcept[];
   summary: string[];
   quickCheckQuestions: QuickCheckQuestion[];
+  // Manual content additions
+  videos?: VideoContent[];
+  quizzes?: Quiz[];
+  images?: ImageContent[];
+  notes?: NoteContent[];
 }
 
+// =============================================================================
+// STRUCTURED CURRICULUM TYPES (New JSON Structure)
+// =============================================================================
+
+// Structured section - a part of a chapter containing microsections
+export interface StructuredSection {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+  sortOrder: number;
+  microsections: Microsection[];
+}
+
+// Structured chapter - top-level structure from JSON
+export interface StructuredChapter {
+  chapterId: string;
+  chapterTitle: string;
+  chapterDescription: string;
+  sections: StructuredSection[];
+}
+
+// Array of structured chapters (the full JSON file structure)
+export type StructuredCurriculum = StructuredChapter[];
+
+// Section (DB entity) - a part of a chapter containing microsections
+export interface SectionEntity {
+  id: string;
+  chapterId: string;
+  slug: string;
+  title: string;
+  description?: string;
+  sortOrder: number;
+  microsections: Microsection[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Legacy Lesson interface for backward compatibility
 export interface Lesson {
   sectionId: string;
   title: string;
   lessonContent: LessonContent;
 }
 
+// Unit with sections (structured style)
+export interface UnitWithSections {
+  unitTitle: string;
+  unitDescription: string;
+  sections: SectionEntity[];
+}
+
+// Legacy UnitLessons for backward compatibility
 export interface UnitLessons {
   unitTitle: string;
   unitDescription: string;
   lessons: Lesson[];
+}
+
+// Chapter with sections (structured style) - DB entity extended
+export interface ChapterWithSections extends ChapterEntity {
+  sections: SectionEntity[];
 }
 
 // =============================================================================
@@ -197,7 +348,7 @@ export interface Chapter {
 // SETUP PAGE TYPES
 // =============================================================================
 
-export type SetupStep = 'accessibility' | 'curriculum' | 'grade' | 'chapters';
+export type SetupStep = 'curriculum' | 'grade' | 'chapters';
 
 export interface SetupStepInfo {
   id: SetupStep;
@@ -206,7 +357,6 @@ export interface SetupStepInfo {
 }
 
 export interface UserSetupData {
-  disabilities: string[];
   curriculumId: string;
   classId: string;
   chapterIds: string[];

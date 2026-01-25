@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { 
   fetchCurricula,
   fetchSubjectsWithChapters,
-  accessibilityOptions,
 } from '../data/curriculumData';
 import type { 
   SetupStep, 
@@ -16,14 +15,12 @@ import type {
 } from '../types';
 
 const STEPS: SetupStepInfo[] = [
-  { id: 'accessibility', title: 'Accessibility', subtitle: 'How can we help you learn better?' },
   { id: 'curriculum', title: 'Curriculum', subtitle: 'Which board do you follow?' },
   { id: 'grade', title: 'Grade', subtitle: 'What class are you in?' },
   { id: 'chapters', title: 'Chapters', subtitle: 'What would you like to learn?' },
 ];
 
 interface SetupData {
-  disabilities: string[];
   curriculumId: string;
   classId: string;
   chapterIds: string[];
@@ -32,9 +29,8 @@ interface SetupData {
 export const UserSetupPage = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const [currentStep, setCurrentStep] = useState<SetupStep>('accessibility');
+  const [currentStep, setCurrentStep] = useState<SetupStep>('curriculum');
   const [setupData, setSetupData] = useState<SetupData>({
-    disabilities: [],
     curriculumId: '',
     classId: '',
     chapterIds: []
@@ -88,8 +84,6 @@ export const UserSetupPage = () => {
   // Check if current step is complete
   const isStepComplete = (step: SetupStep): boolean => {
     switch (step) {
-      case 'accessibility':
-        return setupData.disabilities.length > 0;
       case 'curriculum':
         return setupData.curriculumId !== '';
       case 'grade':
@@ -119,15 +113,6 @@ export const UserSetupPage = () => {
   };
 
   // Handlers
-  const toggleDisability = (id: string) => {
-    setSetupData(prev => ({
-      ...prev,
-      disabilities: prev.disabilities.includes(id)
-        ? prev.disabilities.filter(d => d !== id)
-        : [...prev.disabilities, id]
-    }));
-  };
-
   const selectCurriculum = (id: string) => {
     setSetupData(prev => ({
       ...prev,
@@ -194,8 +179,7 @@ export const UserSetupPage = () => {
           profile: {
             curriculumId: setupData.curriculumId,
             classId: setupData.classId,
-            chapterIds: setupData.chapterIds,
-            disabilities: setupData.disabilities
+            chapterIds: setupData.chapterIds
           },
           curriculumId: setupData.curriculumId,
           classId: setupData.classId
@@ -327,48 +311,7 @@ export const UserSetupPage = () => {
               </div>
             )}
 
-            {/* Step 1: Accessibility */}
-            {currentStep === 'accessibility' && (
-              <div className="space-y-4">
-                <p className="text-slate-600 mb-6">
-                  Select any accessibility needs you have. This helps us customize your learning experience.
-                  You can skip this step if none apply.
-                </p>
-                <div className="grid gap-4">
-                  {accessibilityOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => toggleDisability(option.id)}
-                      className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
-                        setupData.disabilities.includes(option.id)
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <span className="text-3xl">{option.icon}</span>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-slate-900 mb-1">{option.name}</h3>
-                          <p className="text-sm text-slate-600">{option.description}</p>
-                        </div>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          setupData.disabilities.includes(option.id)
-                            ? 'border-blue-500 bg-blue-500 text-white'
-                            : 'border-slate-300'
-                        }`}>
-                          {setupData.disabilities.includes(option.id) && '✓'}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-sm text-slate-500 mt-4">
-                  💡 Tip: You can select multiple options or none at all.
-                </p>
-              </div>
-            )}
-
-            {/* Step 2: Curriculum */}
+            {/* Step 1: Curriculum */}
             {currentStep === 'curriculum' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
@@ -393,7 +336,7 @@ export const UserSetupPage = () => {
               </div>
             )}
 
-            {/* Step 3: Grade */}
+            {/* Step 2: Grade */}
             {currentStep === 'grade' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
@@ -423,7 +366,7 @@ export const UserSetupPage = () => {
               </div>
             )}
 
-            {/* Step 4: Chapters (grouped by subject) */}
+            {/* Step 3: Chapters (grouped by subject) */}
             {currentStep === 'chapters' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
@@ -576,16 +519,14 @@ export const UserSetupPage = () => {
             ) : (
               <button
                 onClick={goToNextStep}
-                disabled={!canGoNext && currentStep !== 'accessibility'}
+                disabled={!canGoNext}
                 className={`px-8 py-3 rounded-lg font-semibold transition-all ${
-                  canGoNext || currentStep === 'accessibility'
+                  canGoNext
                     ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg'
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                {currentStep === 'accessibility' && setupData.disabilities.length === 0 
-                  ? 'Skip →' 
-                  : 'Continue →'}
+                Continue →
               </button>
             )}
           </div>

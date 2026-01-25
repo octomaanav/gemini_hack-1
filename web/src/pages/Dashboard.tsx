@@ -139,18 +139,6 @@ function Dashboard() {
             </div>
             
             <div className="flex items-center gap-4">
-              {userProfile.disabilities.length > 0 && (
-                <div className="flex gap-2">
-                  {userProfile.disabilities.map(d => (
-                    <span key={d} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
-                      {d === 'blind' && '👁️ Visual'}
-                      {d === 'deaf' && '👂 Hearing'}
-                      {d === 'neurodivergent' && '🧠 ND'}
-                    </span>
-                  ))}
-                </div>
-              )}
-              
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-semibold text-sm">
                   {user.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -257,17 +245,7 @@ function Dashboard() {
                         }}
                         className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all"
                       >
-                        Start Learning
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (selectedChapter && selectedSubject && userProfile) {
-                            navigate(`/${userProfile.classId}/${selectedSubject.slug}/${selectedChapter.slug}`);
-                          }
-                        }}
-                        className="px-6 py-3 border-2 border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-all"
-                      >
-                        View Lesson
+                        View Chapter
                       </button>
                     </div>
                   </div>
@@ -307,21 +285,6 @@ function Dashboard() {
                   <p className="font-medium text-slate-900">{totalChapters} chapters</p>
                   <p className="text-xs text-slate-500">across {subjectsWithChapters.length} subjects</p>
                 </div>
-
-                {userProfile.disabilities.length > 0 && (
-                  <div className="pt-4 border-t border-slate-200">
-                    <p className="text-xs font-semibold text-slate-500 mb-2">Accessibility</p>
-                    <div className="space-y-1">
-                      {userProfile.disabilities.map(d => (
-                        <div key={d} className="text-sm text-slate-700">
-                          {d === 'blind' && '👁️ Visual support enabled'}
-                          {d === 'deaf' && '👂 Hearing support enabled'}
-                          {d === 'neurodivergent' && '🧠 ND-friendly mode enabled'}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </aside>

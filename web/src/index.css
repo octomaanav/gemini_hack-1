@@ -94,6 +94,68 @@ body {
   background-color: #fafaf8; /* surface-50 */
 }
 
+#main-content {
+  padding-top: 56px;
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 1000;
+  background: #0f766e;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  width: auto;
+  height: auto;
+}
+
+/* Accessibility modes */
+:root[data-text-size="large"] {
+  font-size: 112.5%;
+}
+
+:root[data-reduce-motion="true"] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root[data-focus-mode="true"] .focus-mode-hide {
+  display: none !important;
+}
+
+:root[data-focus-mode="true"] .focus-mode-surface {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+:root[data-focus-mode="true"] body {
+  line-height: 1.7;
+}
+
 /* Focus states for accessibility */
 *:focus-visible {
   outline: 2px solid #0d9488; /* primary-600 */

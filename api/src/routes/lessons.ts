@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { chapters, lessons as lessonsTable, classes, curricula } from "../db/schema.js";
+import { chapters, lessons as lessonsTable, classes, curricula, contentTranslations } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { Unit, UnitLessons, Book, StructuredChapter, StructuredCurriculum } from "../../types/index.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
@@ -12,6 +12,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const lessonsRouter = Router();
+
+const normalizeLocale = (locale?: string) => {
+  if (!locale) return "en-US";
+  const cleaned = locale.trim();
+  if (cleaned.toLowerCase().startsWith("es")) return "es-ES";
+  if (cleaned.toLowerCase().startsWith("hi")) return "hi-IN";
+  return "en-US";
+};
+
+const buildContentKey = (parts: Record<string, string>) => {
+  return Object.entries(parts)
+    .map(([key, value]) => `${key}:${value}`)
+    .join("|");
+};
 
 /**
  * Helper function to resolve classId (UUID or slug) to curriculum_class format for file lookup
@@ -733,6 +747,7 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
 lessonsRouter.get("/structured/:classId/:subjectId", async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
     
     // Resolve classId (UUID or slug) to file prefix
     const filePrefix = await resolveClassToFilePrefix(classId);
@@ -754,7 +769,49 @@ lessonsRouter.get("/structured/:classId/:subjectId", async (req, res) => {
     }
     
     const data: StructuredCurriculum = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    res.json(data);
+    if (locale.startsWith("en")) {
+      return res.json(data);
+    }
+
+    if (!hasGeminiApiKey()) {
+      return res.status(500).json({ error: "Gemini API key is not configured." });
+    }
+
+    const contentKey = buildContentKey({ classId, subjectId });
+    const [cached] = await db
+      .select()
+      .from(contentTranslations)
+      .where(and(
+        eq(contentTranslations.contentKey, contentKey),
+        eq(contentTranslations.contentType, "structured_subject"),
+        eq(contentTranslations.locale, locale),
+      ))
+      .limit(1);
+
+    if (cached?.payload) {
+      return res.json(cached.payload);
+    }
+
+    const prompt = `Translate the following structured curriculum payload into ${locale}.
+Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings.
+
+Payload:
+${JSON.stringify(data)}
+`;
+
+    const translated = await callGeminiJson(prompt);
+
+    await db
+      .insert(contentTranslations)
+      .values({
+        contentKey,
+        contentType: "structured_subject",
+        locale,
+        payload: translated,
+      })
+      .onConflictDoNothing();
+
+    return res.json(translated);
   } catch (error) {
     console.error("Error loading structured curriculum data:", error);
     res.status(500).json({ 
@@ -771,6 +828,7 @@ lessonsRouter.get("/structured/:classId/:subjectId", async (req, res) => {
 lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug", async (req, res) => {
   try {
     const { classId, subjectId, chapterSlug } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
     
     // Resolve classId (UUID or slug) to file prefix
     const filePrefix = await resolveClassToFilePrefix(classId);
@@ -801,7 +859,49 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug", async (req, re
       return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
     }
     
-    res.json(chapter);
+    if (locale.startsWith("en")) {
+      return res.json(chapter);
+    }
+
+    if (!hasGeminiApiKey()) {
+      return res.status(500).json({ error: "Gemini API key is not configured." });
+    }
+
+    const contentKey = buildContentKey({ classId, subjectId, chapterSlug });
+    const [cached] = await db
+      .select()
+      .from(contentTranslations)
+      .where(and(
+        eq(contentTranslations.contentKey, contentKey),
+        eq(contentTranslations.contentType, "chapter"),
+        eq(contentTranslations.locale, locale),
+      ))
+      .limit(1);
+
+    if (cached?.payload) {
+      return res.json(cached.payload);
+    }
+
+    const prompt = `Translate the following chapter payload into ${locale}.
+Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings (titles, descriptions, prompts).
+
+Payload:
+${JSON.stringify(chapter)}
+`;
+
+    const translated = await callGeminiJson(prompt);
+
+    await db
+      .insert(contentTranslations)
+      .values({
+        contentKey,
+        contentType: "chapter",
+        locale,
+        payload: translated,
+      })
+      .onConflictDoNothing();
+
+    return res.json(translated);
   } catch (error) {
     console.error("Error loading structured chapter:", error);
     res.status(500).json({ 
@@ -818,6 +918,7 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug", async (req, re
 lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId", async (req, res) => {
   try {
     const { classId, subjectId, chapterSlug, sectionSlug, microsectionId } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
     
     // Resolve classId (UUID or slug) to file prefix
     const filePrefix = await resolveClassToFilePrefix(classId);
@@ -859,8 +960,7 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
       return res.status(404).json({ error: `Microsection '${microsectionId}' not found` });
     }
     
-    // Return microsection with additional context
-    res.json({
+    const responsePayload = {
       chapter: {
         chapterId: chapter.chapterId,
         chapterTitle: chapter.chapterTitle,
@@ -871,7 +971,6 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
         title: section.title,
       },
       microsection,
-      // Include navigation info (prev/next microsections)
       navigation: {
         sectionMicrosections: section.microsections.map(m => ({
           id: m.id,
@@ -880,7 +979,58 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
         })),
         currentIndex: section.microsections.findIndex(m => m.id === microsectionId),
       }
-    });
+    };
+
+    if (!locale.startsWith("en")) {
+      if (!hasGeminiApiKey()) {
+        return res.status(500).json({ error: "Gemini API key is not configured." });
+      }
+
+      const contentKey = buildContentKey({
+        classId,
+        subjectId,
+        chapterSlug,
+        sectionSlug,
+        microsectionId,
+      });
+
+      const [cached] = await db
+        .select()
+        .from(contentTranslations)
+        .where(and(
+          eq(contentTranslations.contentKey, contentKey),
+          eq(contentTranslations.contentType, "microsection"),
+          eq(contentTranslations.locale, locale),
+        ))
+        .limit(1);
+
+      if (cached?.payload) {
+        return res.json(cached.payload);
+      }
+
+      const prompt = `Translate the following lesson microsection payload into ${locale}. 
+Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings.
+
+Payload:
+${JSON.stringify(responsePayload)}
+`;
+
+      const translated = await callGeminiJson(prompt);
+
+      await db
+        .insert(contentTranslations)
+        .values({
+          contentKey,
+          contentType: "microsection",
+          locale,
+          payload: translated,
+        })
+        .onConflictDoNothing();
+
+      return res.json(translated);
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     console.error("Error loading microsection:", error);
     res.status(500).json({ 

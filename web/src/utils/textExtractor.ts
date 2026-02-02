@@ -173,3 +173,36 @@ export const extractLessonText = (lesson: Lesson): string => {
   
   return parts.join('. ');
 };
+
+/**
+ * Extracts raw text from an ArticleContent (keeps LaTeX for braille parsing)
+ */
+export const extractArticleRawText = (content: ArticleContent): string => {
+  const parts: string[] = [];
+
+  if (content.introduction) {
+    parts.push(content.introduction);
+  }
+
+  content.coreConcepts.forEach((concept) => {
+    parts.push(concept.conceptTitle);
+    if (concept.explanation) parts.push(concept.explanation);
+    if (concept.example) parts.push(`Example: ${concept.example}`);
+    if (concept.diagramDescription) parts.push(`Diagram: ${concept.diagramDescription}`);
+  });
+
+  if (content.summary.length > 0) {
+    parts.push('Summary:');
+    content.summary.forEach((point) => parts.push(point));
+  }
+
+  if (content.quickCheckQuestions.length > 0) {
+    parts.push('Quick check questions:');
+    content.quickCheckQuestions.forEach((q) => {
+      parts.push(`Question: ${q.question}`);
+      parts.push(`Answer: ${q.answer}`);
+    });
+  }
+
+  return parts.join('\n');
+};

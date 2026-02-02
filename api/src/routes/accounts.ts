@@ -4,7 +4,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { db } from "../db/index.js";
 import { users, userChapters } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { uuid } from "uuidv4";
+import { v4 as uuidv4 } from "uuid";
 import type { User } from "../../types/index.js";
 
 const accountsRouter = Router();
@@ -20,7 +20,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
-          const userId = uuid();
+          const userId = uuidv4();
           const email = profile.emails?.[0]?.value;
           const name = profile.displayName;
 
@@ -183,6 +183,53 @@ accountsRouter.put("/me", async (req, res) => {
   } catch (error) {
     console.error("Error updating user profile:", error);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+accountsRouter.put("/preferences", async (req, res) => {
+  if (!req.isAuthenticated() || !req.user) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    const { language, accessibility } = req.body as {
+      language?: string;
+      accessibility?: Record<string, unknown>;
+    };
+    const user = req.user as User;
+
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, user.email))
+      .limit(1);
+
+    if (!existingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const mergedProfile = {
+      ...(existingUser.profile || {}),
+      ...(accessibility ? { accessibility } : {}),
+      ...(language ? { language } : {}),
+    };
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        profile: mergedProfile,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.email, user.email))
+      .returning();
+
+    req.user = updatedUser as any;
+    req.session.save(() => {});
+
+    return res.json({ user: updatedUser });
+  } catch (error) {
+    console.error("Error updating preferences:", error);
+    return res.status(500).json({ error: "Failed to update preferences" });
   }
 });
 

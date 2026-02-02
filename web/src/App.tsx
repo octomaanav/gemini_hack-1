@@ -15,60 +15,73 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUploadPage from './pages/AdminUploadPage';
 import AdminChapterReviewPage from './pages/AdminChapterReviewPage';
 import AdminLessonEditorPage from './pages/AdminLessonEditorPage';
+import AccessibilityGuidePage from './pages/AccessibilityGuidePage';
 import { VoiceAgentProvider } from './components/VoiceAgentProvider';
 import { VoiceAgentControls } from './components/VoiceAgentControls';
+import { AccessibilityProvider } from './components/accessibility/AccessibilityProvider';
+import { GlobalControlsBar } from './components/GlobalControlsBar';
+import { LanguageProvider } from './components/i18n/LanguageProvider';
 
 function App() {
   return (
     <Router>
-      <VoiceAgentProvider>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/parse" element={<UploadPage />} />
-          <Route path="/parse/review" element={<ChapterReviewPage />} />
-          <Route path="/parse/result" element={<ParseResultPage />} />
-          <Route 
-            path="/setup" 
-            element={
-              <ProtectedRoute>
-                <UserSetupPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute requireSetup={true}>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          {/* Chapter page - shows sections within a chapter (structured style) */}
-          <Route 
-            path="/:classId/:subjectId/:chapterSlug" 
-            element={<ChapterPage />} 
-          />
-          {/* Microsection page - individual content (article, video, quiz, practice) */}
-          <Route 
-            path="/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId" 
-            element={<MicrosectionPage />} 
-          />
-          {/* Legacy lesson page - fallback */}
-          <Route 
-            path="/:classId/:subjectId/:unit/lesson" 
-            element={<LessonPage />} 
-          />
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/admin/upload" element={<AdminUploadPage />} />
-          <Route path="/admin/review" element={<AdminChapterReviewPage />} />
-          <Route path="/admin/editor" element={<AdminLessonEditorPage />} />
-          <Route path="/admin/editor/:lessonId" element={<AdminLessonEditorPage />} />
-        </Routes>
-        <VoiceAgentControls />
-      </VoiceAgentProvider>
+      <AccessibilityProvider>
+        <LanguageProvider>
+          <VoiceAgentProvider>
+            <a href="#main-content" className="skip-link">Skip to content</a>
+            <main id="main-content">
+              <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/parse" element={<UploadPage />} />
+              <Route path="/parse/review" element={<ChapterReviewPage />} />
+              <Route path="/parse/result" element={<ParseResultPage />} />
+              <Route 
+                path="/setup" 
+                element={
+                  <ProtectedRoute>
+                    <UserSetupPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute requireSetup={true}>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              {/* Chapter page - shows sections within a chapter (structured style) */}
+              <Route 
+                path="/:classId/:subjectId/:chapterSlug" 
+                element={<ChapterPage />} 
+              />
+              {/* Microsection page - individual content (article, video, quiz, practice) */}
+              <Route 
+                path="/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId" 
+                element={<MicrosectionPage />} 
+              />
+              {/* Legacy lesson page - fallback */}
+              <Route 
+                path="/:classId/:subjectId/:unit/lesson" 
+                element={<LessonPage />} 
+              />
+              {/* Admin Routes */}
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/upload" element={<AdminUploadPage />} />
+              <Route path="/admin/review" element={<AdminChapterReviewPage />} />
+              <Route path="/admin/editor" element={<AdminLessonEditorPage />} />
+              <Route path="/admin/editor/:lessonId" element={<AdminLessonEditorPage />} />
+              <Route path="/accessibility-guide" element={<AccessibilityGuidePage />} />
+              </Routes>
+            </main>
+            <GlobalControlsBar />
+            <VoiceAgentControls />
+          </VoiceAgentProvider>
+        </LanguageProvider>
+      </AccessibilityProvider>
     </Router>
   );
 }

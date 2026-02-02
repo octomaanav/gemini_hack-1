@@ -5,6 +5,9 @@ import {
   fetchCurricula,
   fetchSubjectsWithChapters,
 } from '../data/curriculumData';
+import { saveLanguagePreference } from '../utils/language';
+import { useI18n } from '../components/i18n/useI18n';
+import { useLanguage } from '../components/i18n/LanguageProvider';
 import type { 
   SetupStep, 
   SetupStepInfo, 
@@ -14,26 +17,29 @@ import type {
   ChapterEntity,
 } from '../types';
 
-const STEPS: SetupStepInfo[] = [
-  { id: 'curriculum', title: 'Curriculum', subtitle: 'Which board do you follow?' },
-  { id: 'grade', title: 'Grade', subtitle: 'What class are you in?' },
-  { id: 'chapters', title: 'Chapters', subtitle: 'What would you like to learn?' },
-];
-
 interface SetupData {
   curriculumId: string;
   classId: string;
   chapterIds: string[];
+  language: 'en' | 'es' | 'hi';
 }
 
 export const UserSetupPage = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useI18n();
+  const { setLanguage } = useLanguage();
+  const STEPS: SetupStepInfo[] = [
+    { id: 'curriculum', title: t('setup.curriculum'), subtitle: t('setup.subtitle') },
+    { id: 'grade', title: t('setup.grade'), subtitle: t('setup.subtitle') },
+    { id: 'chapters', title: t('setup.chapters'), subtitle: t('setup.subtitle') },
+  ];
   const [currentStep, setCurrentStep] = useState<SetupStep>('curriculum');
   const [setupData, setSetupData] = useState<SetupData>({
     curriculumId: '',
     classId: '',
-    chapterIds: []
+    chapterIds: [],
+    language: 'en'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,19 +53,28 @@ export const UserSetupPage = () => {
   // UI state for expanded subjects
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (user?.profile?.language) {
+      setSetupData(prev => ({
+        ...prev,
+        language: (user.profile?.language as 'en' | 'es' | 'hi') || 'en'
+      }));
+    }
+  }, [user]);
+
   // Fetch curricula on mount
   useEffect(() => {
-    fetchCurricula()
+    fetchCurricula(setupData.language)
       .then(setCurricula)
       .catch((err) => setError(err.message))
       .finally(() => setIsLoadingCurricula(false));
-  }, []);
+  }, [setupData.language]);
 
   // Fetch subjects with chapters when class changes
   useEffect(() => {
     if (setupData.curriculumId && setupData.classId) {
       setIsLoadingSubjects(true);
-      fetchSubjectsWithChapters(setupData.curriculumId, setupData.classId)
+      fetchSubjectsWithChapters(setupData.curriculumId, setupData.classId, setupData.language)
         .then((data) => {
           setSubjectsWithChapters(data);
           // Auto-expand first subject
@@ -151,6 +166,7 @@ export const UserSetupPage = () => {
     }));
   };
 
+
   const toggleAllChaptersInSubject = (subject: SubjectWithChapters) => {
     const subjectChapterIds = subject.chapters.map(c => c.id);
     const allSelected = subjectChapterIds.every(id => setupData.chapterIds.includes(id));
@@ -179,7 +195,8 @@ export const UserSetupPage = () => {
           profile: {
             curriculumId: setupData.curriculumId,
             classId: setupData.classId,
-            chapterIds: setupData.chapterIds
+            chapterIds: setupData.chapterIds,
+            language: setupData.language
           },
           curriculumId: setupData.curriculumId,
           classId: setupData.classId
@@ -189,6 +206,7 @@ export const UserSetupPage = () => {
       const data = await response.json();
 
       if (response.ok && data.user?.isProfileComplete) {
+        saveLanguagePreference(setupData.language);
         navigate('/dashboard');
       } else {
         setError(data.error || 'Failed to save profile');
@@ -222,7 +240,7 @@ export const UserSetupPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
+          <p className="text-slate-600">{t('setup.loading')}</p>
         </div>
       </div>
     );
@@ -256,7 +274,7 @@ export const UserSetupPage = () => {
             <span className="font-bold text-xl text-slate-800">LearnHub</span>
           </div>
           <div className="text-sm text-slate-600">
-            Welcome, <span className="font-semibold text-slate-800">{user.name}</span>
+            {t('setup.welcome')}, <span className="font-semibold text-slate-800">{user.name}</span>
           </div>
         </div>
       </header>
@@ -305,6 +323,26 @@ export const UserSetupPage = () => {
 
           {/* Step Content */}
           <div className="p-8">
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-sm font-semibold text-slate-700 mb-3">{t('setup.preferences')}</div>
+              <div className="flex flex-wrap gap-3 items-center">
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('controls.language')}</label>
+                <select
+                  value={setupData.language}
+                  onChange={(event) => {
+                    const next = event.target.value as 'en' | 'es' | 'hi';
+                    setSetupData(prev => ({ ...prev, language: next }));
+                    setLanguage(next);
+                    saveLanguagePreference(next);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <option value="en">US English 🇺🇸</option>
+                  <option value="es">ES Espanol 🇪🇸</option>
+                  <option value="hi">IN Hindi 🇮🇳</option>
+                </select>
+              </div>
+            </div>
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 font-medium">{error}</p>
@@ -315,7 +353,7 @@ export const UserSetupPage = () => {
             {currentStep === 'curriculum' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  Choose your education board. We'll show you content tailored to your curriculum.
+                  {t('setup.boardHint')}
                 </p>
                 <div className="grid md:grid-cols-2 gap-4">
                   {curricula.map((curriculum) => (
@@ -340,7 +378,7 @@ export const UserSetupPage = () => {
             {currentStep === 'grade' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  What class are you currently in? This helps us show you the right content.
+                  {t('setup.gradeHint')}
                 </p>
                 {selectedCurriculum && (
                   <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -370,7 +408,7 @@ export const UserSetupPage = () => {
             {currentStep === 'chapters' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  Select the chapters you want to study. Expand each subject to see available chapters.
+                  {t('setup.chaptersHint')}
                 </p>
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
                   <span className="font-medium text-blue-800">{selectedCurriculum?.name}</span>
@@ -383,7 +421,7 @@ export const UserSetupPage = () => {
                 {isLoadingSubjects ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-slate-500">Loading chapters...</p>
+                    <p className="text-slate-500">{t('setup.loading')}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -501,7 +539,7 @@ export const UserSetupPage = () => {
                   : 'text-slate-400 cursor-not-allowed'
               }`}
             >
-              ← Back
+              {t('setup.back')}
             </button>
 
             {isLastStep ? (
@@ -514,7 +552,7 @@ export const UserSetupPage = () => {
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                {isSubmitting ? 'Setting up...' : 'Complete Setup ✓'}
+                {isSubmitting ? t('setup.loading') : `${t('setup.finish')} ✓`}
               </button>
             ) : (
               <button
@@ -526,7 +564,7 @@ export const UserSetupPage = () => {
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                Continue →
+                {t('setup.next')} →
               </button>
             )}
           </div>

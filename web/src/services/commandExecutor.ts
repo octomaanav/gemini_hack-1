@@ -74,6 +74,21 @@ export class CommandExecutor {
             result = await this.listChapters(call.args.subject);
             success = true;
             break;
+          
+          case 'toggleFocusMode':
+            success = this.toggleFocusMode(call.args.enabled);
+            result = { success, enabled: call.args.enabled };
+            break;
+
+          case 'openStoryMode':
+            success = this.openStoryMode();
+            result = { success };
+            break;
+
+          case 'openBraille':
+            success = this.openBraille();
+            result = { success };
+            break;
 
           default:
             console.warn('[CommandExecutor] Unknown tool:', call.name);
@@ -99,6 +114,39 @@ export class CommandExecutor {
     return responses;
   }
 
+  private toggleFocusMode(enabled?: boolean): boolean {
+    try {
+      const event = new CustomEvent('focus-mode-toggle', { detail: { value: enabled } });
+      window.dispatchEvent(event);
+      return true;
+    } catch (error) {
+      console.error('[CommandExecutor] Failed to toggle focus mode:', error);
+      return false;
+    }
+  }
+
+  private openStoryMode(): boolean {
+    try {
+      const event = new CustomEvent('story-open');
+      window.dispatchEvent(event);
+      return true;
+    } catch (error) {
+      console.error('[CommandExecutor] Failed to open story mode:', error);
+      return false;
+    }
+  }
+
+  private openBraille(): boolean {
+    try {
+      const event = new CustomEvent('braille-open');
+      window.dispatchEvent(event);
+      return true;
+    } catch (error) {
+      console.error('[CommandExecutor] Failed to open braille:', error);
+      return false;
+    }
+  }
+
   /**
    * Navigate to a page in the app
    */
@@ -108,9 +156,11 @@ export class CommandExecutor {
         dashboard: '/dashboard',
         home: '/',
         setup: '/setup',
+        'accessibility-guide': '/accessibility-guide',
       };
       
-      const route = routes[destination];
+      const normalizedDestination = destination?.toLowerCase().replace(/\s+/g, '-');
+      const route = routes[destination] || routes[normalizedDestination];
       if (route) {
         this.deps.navigate(route);
         return true;

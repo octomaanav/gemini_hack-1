@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useI18n } from '../components/i18n/useI18n';
 
 function LoginPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
@@ -29,7 +31,7 @@ function LoginPage() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to home
+            {t('auth.backToHome')}
           </button>
 
           {/* Logo */}
@@ -37,16 +39,12 @@ function LoginPage() {
             <div className="w-11 h-11 bg-gradient-to-br from-primary-500 via-primary-600 to-teal-700 rounded-xl flex items-center justify-center shadow-lg">
               <span className="text-white text-lg font-bold">L</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent">LearnHub</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent">{t('app.name')}</span>
           </Link>
 
           {/* Header */}
-          <h1 className="text-3xl font-black text-surface-900 mb-2">
-            Welcome back
-          </h1>
-          <p className="text-lg text-surface-600 font-medium mb-10">
-            Continue your learning journey.
-          </p>
+          <h1 className="text-3xl font-black text-surface-900 mb-2">{t('auth.welcomeBack')}</h1>
+          <p className="text-lg text-surface-600 font-medium mb-10">{t('auth.continueJourney')}</p>
         </div>
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -63,7 +61,7 @@ function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              <span>Continue with Google</span>
+              <span>{t('auth.continueGoogle')}</span>
             </button>
 
             <button
@@ -73,14 +71,14 @@ function LoginPage() {
               <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
-              <span>Continue with Facebook</span>
+              <span>{t('auth.continueFacebook')}</span>
             </button>
           </div>
 
           {/* Divider */}
           <div className="my-8 flex items-center">
             <div className="flex-1 border-t border-surface-300"></div>
-            <span className="px-4 text-sm font-semibold text-surface-600">or</span>
+            <span className="px-4 text-sm font-semibold text-surface-600">{t('auth.or')}</span>
             <div className="flex-1 border-t border-surface-300"></div>
           </div>
 
@@ -88,7 +86,7 @@ function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5 mb-8">
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-surface-900 mb-2">
-                Email address
+                {t('auth.email')}
               </label>
               <input
                 type="email"
@@ -105,10 +103,10 @@ function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label htmlFor="password" className="block text-sm font-bold text-surface-900">
-                  Password
+                  {t('auth.password')}
                 </label>
                 <a href="#" className="text-sm font-semibold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
-                  Forgot?
+                  {t('auth.forgot')}
                 </a>
               </div>
               <input
@@ -127,24 +125,24 @@ function LoginPage() {
               type="submit"
               className="w-full px-5 py-3.5 bg-gradient-to-r from-secondary-600 to-secondary-700 text-white font-bold rounded-xl hover:from-secondary-700 hover:to-secondary-800 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base"
             >
-              Sign in
+              {t('auth.signIn')}
             </button>
           </form>
 
           {/* Sign up link */}
           <p className="text-center text-base text-surface-700 font-medium">
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/signup" className="font-bold text-primary-600 hover:text-primary-700 cursor-pointer transition-colors duration-150">
-              Create one
+              {t('auth.createOne')}
             </Link>
           </p>
 
           {/* Terms */}
           <p className="mt-6 text-center text-xs text-surface-600 leading-relaxed font-medium">
-            By signing in, you agree to our{' '}
-            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Terms</a>
+            {t('auth.bySigningIn')}{' '}
+            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">{t('auth.terms')}</a>
             {' '}and{' '}
-            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">Privacy</a>.
+            <a href="#" className="underline hover:text-surface-800 cursor-pointer transition-colors duration-150">{t('auth.privacy')}</a>.
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, boolean, uuid, jsonb, integer, unique } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import type { UserProfile, LessonContentUnion, UnitLessons } from "../../types/index.js";
+import type { UserProfile, LessonContentUnion, UnitLessons, StorySlide } from "../../types/index.js";
 
 // =============================================================================
 // USERS TABLE
@@ -112,6 +112,62 @@ export const lessons = pgTable("lessons", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueSlugPerChapter: unique().on(table.chapterId, table.slug),
+}));
+
+// =============================================================================
+// STORY ASSETS TABLE (Story mode slides + video placeholders)
+// =============================================================================
+
+export const storyAssets = pgTable("story_assets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storyKey: text("story_key").notNull().unique(),
+  classId: text("class_id").notNull(),
+  subjectId: text("subject_id").notNull(),
+  chapterSlug: text("chapter_slug").notNull(),
+  sectionSlug: text("section_slug").notNull(),
+  microsectionId: text("microsection_id"),
+  status: text("status").notNull().default("pending"),
+  renderType: text("render_type").notNull().default("slides"),
+  slides: jsonb("slides").$type<StorySlide[]>().notNull(),
+  videoUrl: text("video_url"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// =============================================================================
+// STORY AUDIO ASSETS TABLE (Localized narration + captions)
+// =============================================================================
+
+export const storyAudioAssets = pgTable("story_audio_assets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storyId: uuid("story_id").references(() => storyAssets.id, { onDelete: "cascade" }).notNull(),
+  locale: text("locale").notNull(),
+  status: text("status").notNull().default("pending"),
+  slides: jsonb("slides").$type<Array<Record<string, unknown>>>().notNull(),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueStoryLocale: unique().on(table.storyId, table.locale),
+}));
+
+// =============================================================================
+// CONTENT TRANSLATIONS (On-demand localized lesson content)
+// =============================================================================
+
+export const contentTranslations = pgTable("content_translations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contentKey: text("content_key").notNull(),
+  contentType: text("content_type").notNull(),
+  locale: text("locale").notNull(),
+  payload: jsonb("payload").notNull(),
+  status: text("status").notNull().default("ready"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueContentLocale: unique().on(table.contentKey, table.contentType, table.locale),
 }));
 
 // =============================================================================

@@ -2,10 +2,20 @@
 // USER & AUTHENTICATION TYPES
 // =============================================================================
 
+export interface AccessibilityPreferences {
+  focusMode?: boolean;
+  largeText?: boolean;
+  reduceMotion?: boolean;
+  captionsOn?: boolean;
+  signsOn?: boolean;
+}
+
 export interface UserProfile {
   curriculumId: string;
   classId: string;
   chapterIds: string[];
+  accessibility?: AccessibilityPreferences;
+  language?: string;
 }
 
 export interface User {
@@ -218,6 +228,56 @@ export interface NoteContent {
   updatedAt?: string;
 }
 
+// =============================================================================
+// STORY MODE TYPES
+// =============================================================================
+
+export interface StorySlide {
+  id: string;
+  index: number;
+  title: string;
+  narration: string;
+  caption: string;
+  imagePrompt: string;
+  imageUrl?: string;
+  signKeywords?: string[];
+}
+
+export interface StoryAsset {
+  id: string;
+  storyKey: string;
+  classId: string;
+  subjectId: string;
+  chapterSlug: string;
+  sectionSlug: string;
+  microsectionId?: string | null;
+  status: "pending" | "ready" | "error";
+  renderType: "slides" | "video";
+  slides: StorySlide[];
+  videoUrl?: string | null;
+  error?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StoryAudioSlide {
+  slideId: string;
+  narration: string;
+  caption: string;
+  audioUrl: string;
+}
+
+export interface StoryAudioAsset {
+  id: string;
+  storyId: string;
+  locale: string;
+  status: "pending" | "ready" | "error";
+  slides: StoryAudioSlide[];
+  error?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // LessonContent - legacy format for backward compatibility
 export interface LessonContent {
   introduction: string;
@@ -360,4 +420,5 @@ export interface UserSetupData {
   curriculumId: string;
   classId: string;
   chapterIds: string[];
+  accessibility?: AccessibilityPreferences;
 }

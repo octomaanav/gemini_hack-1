@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { User, AuthData, UseAuthReturn } from '../types';
+import { syncAccessibilityFromProfile } from '../utils/accessibility';
 
 export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null);
@@ -18,6 +19,7 @@ export const useAuth = (): UseAuthReturn => {
       if (response.ok) {
         const data: AuthData = await response.json();
         const normalizedSubjects = Array.isArray(data.user.subjects) ? data.user.subjects : [];
+        syncAccessibilityFromProfile(data.user.profile?.accessibility);
         setUser({ ...data.user, subjects: normalizedSubjects });
       } else if (response.status === 401) {
         setUser(null);

@@ -12,7 +12,7 @@ export const toolDeclarations: FunctionDeclaration[] = [
       properties: {
         destination: {
           type: Type.STRING,
-          description: "The page to navigate to: dashboard, home, or setup"
+          description: "The page to navigate to: dashboard, home, setup, accessibility-guide"
         }
       },
       required: ["destination"]
@@ -69,6 +69,35 @@ export const toolDeclarations: FunctionDeclaration[] = [
           description: "Optional subject name to filter chapters by"
         }
       }
+    }
+  },
+  {
+    name: "toggleFocusMode",
+    description: "Enable or disable focus mode for distraction-free learning",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        enabled: {
+          type: Type.BOOLEAN,
+          description: "Optional: true to enable, false to disable. If omitted, toggles."
+        }
+      }
+    }
+  },
+  {
+    name: "openStoryMode",
+    description: "Open story mode for the current topic/lesson",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {}
+    }
+  },
+  {
+    name: "openBraille",
+    description: "Open braille output for the current topic/lesson",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {}
     }
   }
 ];

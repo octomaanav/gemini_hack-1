@@ -10,9 +10,12 @@ import type {
   QuizMicrosection, 
   PracticeMicrosection,
   ArticleContent,
-  StoryAsset
+  StoryAsset,
+  StoryAudioAsset
 } from '../types';
 import { extractArticleRawText } from '../utils/textExtractor';
+import { useLanguage } from '../components/i18n/LanguageProvider';
+import { useI18n } from '../components/i18n/useI18n';
 
 // Article Viewer Component
 const ArticleViewer: React.FC<{ content: ArticleContent }> = ({ content }) => {
@@ -34,7 +37,7 @@ const ArticleViewer: React.FC<{ content: ArticleContent }> = ({ content }) => {
           </div>
           {concept.example && (
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-4">
-              <p className="font-semibold text-blue-800 mb-1">Example</p>
+              <p className="font-semibold text-blue-800 mb-1">{t('micro.example')}</p>
               <div className="text-blue-900">
                 <MathText text={concept.example} />
               </div>
@@ -58,7 +61,7 @@ const ArticleViewer: React.FC<{ content: ArticleContent }> = ({ content }) => {
       {/* Summary */}
       {content.summary.length > 0 && (
         <div className="bg-slate-100 rounded-xl p-6 mb-8">
-          <h3 className="text-lg font-bold text-slate-900 mb-3">Key Takeaways</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-3">{t('micro.keyTakeaways')}</h3>
           <ul className="space-y-2">
             {content.summary.map((point, i) => (
               <li key={i} className="flex items-start gap-2">
@@ -73,7 +76,7 @@ const ArticleViewer: React.FC<{ content: ArticleContent }> = ({ content }) => {
       {/* Quick Check Questions */}
       {content.quickCheckQuestions.length > 0 && (
         <div className="border border-slate-200 rounded-xl p-6">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Check</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-4">{t('micro.quickCheck')}</h3>
           <div className="space-y-4">
             {content.quickCheckQuestions.map((q, i) => (
               <details key={i} className="group">
@@ -106,7 +109,10 @@ const VideoViewer: React.FC<{
   story?: StoryAsset | null;
   onGenerateStory?: () => void;
   isStoryLoading?: boolean;
-}> = ({ content, story, onGenerateStory, isStoryLoading }) => {
+  audioSlides?: StoryAudioAsset['slides'];
+  onRegenerateAudio?: () => void;
+  isAudioLoading?: boolean;
+}> = ({ content, story, onGenerateStory, isStoryLoading, audioSlides, onRegenerateAudio, isAudioLoading }) => {
   const getEmbedUrl = (url: string) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtu.be') 
@@ -122,7 +128,15 @@ const VideoViewer: React.FC<{
   };
 
   if (!content.url && story?.status === 'ready') {
-    return <StoryPlayer story={story} autoPlay={false} />;
+    return (
+      <StoryPlayer
+        story={story}
+        autoPlay={false}
+        audioSlides={audioSlides}
+        onRegenerateAudio={onRegenerateAudio}
+        isAudioLoading={isAudioLoading}
+      />
+    );
   }
 
   return (
@@ -143,14 +157,14 @@ const VideoViewer: React.FC<{
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p>Video not available</p>
+              <p>{t('micro.videoNotAvailable')}</p>
             </div>
             {onGenerateStory && (
               <button
                 onClick={onGenerateStory}
                 className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100"
               >
-                {isStoryLoading ? 'Generating Story...' : 'Generate Story Video'}
+                {isStoryLoading ? t('micro.generatingStory') : t('micro.generateStory')}
               </button>
             )}
           </div>
@@ -166,7 +180,7 @@ const VideoViewer: React.FC<{
       {content.transcript && (
         <details className="mt-6 border border-slate-200 rounded-xl">
           <summary className="p-4 cursor-pointer font-medium text-slate-700 hover:bg-slate-50">
-            📄 View Transcript
+            📄 {t('micro.viewTranscript')}
           </summary>
           <div className="p-4 pt-0 text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
             {content.transcript}
@@ -209,7 +223,7 @@ const QuizViewer: React.FC<{ content: QuizMicrosection['content'] }> = ({ conten
       {content.timeLimit && !submitted && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-2 text-amber-800">
           <span>⏱️</span>
-          <span>Time Limit: {content.timeLimit} minutes</span>
+          <span>{t('micro.timeLimit')}: {content.timeLimit} minutes</span>
         </div>
       )}
 
@@ -381,10 +395,14 @@ export function MicrosectionPage() {
   const [story, setStory] = useState<StoryAsset | null>(null);
   const [isStoryLoading, setIsStoryLoading] = useState(false);
   const [storyError, setStoryError] = useState<string | null>(null);
+  const [storyAudio, setStoryAudio] = useState<StoryAudioAsset | null>(null);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [brailleResult, setBrailleResult] = useState<{ brf?: string; fullBraille?: string } | null>(null);
   const [brailleError, setBrailleError] = useState<string | null>(null);
   const [isBrailleOpen, setIsBrailleOpen] = useState(false);
   const [isBrailleLoading, setIsBrailleLoading] = useState(false);
+  const { language } = useLanguage();
+  const { t } = useI18n();
 
   useEffect(() => {
     const fetchMicrosection = async () => {
@@ -396,7 +414,7 @@ export function MicrosectionPage() {
 
       try {
         const response = await fetch(
-          `http://localhost:8000/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}/${sectionSlug}/${microsectionId}`
+          `http://localhost:8000/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}/${sectionSlug}/${microsectionId}?lang=${language}`
         );
         
         if (!response.ok) {
@@ -414,11 +432,13 @@ export function MicrosectionPage() {
     };
 
     fetchMicrosection();
-  }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId]);
+  }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId, language]);
 
   useEffect(() => {
     setStory(null);
     setStoryError(null);
+    setStoryAudio(null);
+    preloadStory();
   }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId]);
 
   const fetchStory = async () => {
@@ -444,12 +464,69 @@ export function MicrosectionPage() {
 
       const storyData: StoryAsset = await response.json();
       setStory(storyData);
+      setStoryAudio(null);
     } catch (err) {
       setStoryError(err instanceof Error ? err.message : 'Failed to generate story');
     } finally {
       setIsStoryLoading(false);
     }
   };
+
+  const preloadStory = async () => {
+    if (!classId || !subjectId || !chapterSlug || !sectionSlug) return;
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/story/${classId}/${subjectId}/${chapterSlug}/${sectionSlug}`
+      );
+      if (!response.ok) {
+        return;
+      }
+      const storyData: StoryAsset = await response.json();
+      if (storyData.status === 'ready') {
+        setStory(storyData);
+      }
+    } catch (err) {
+      console.warn('Story preload failed', err);
+    }
+  };
+
+  const fetchStoryAudio = async (storyData?: StoryAsset, force = false) => {
+    const targetStory = storyData || story;
+    if (!targetStory) return;
+    setIsAudioLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/story/audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId,
+          subjectId,
+          chapterSlug,
+          sectionSlug,
+          locale: language,
+          force
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate audio');
+      }
+
+      const audioData: { audio: StoryAudioAsset } = await response.json();
+      setStoryAudio(audioData.audio);
+    } catch (err) {
+      setStoryError(err instanceof Error ? err.message : 'Failed to generate audio');
+    } finally {
+      setIsAudioLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (story && language) {
+      fetchStoryAudio(story);
+    }
+  }, [story, language]);
 
   const openBraille = async () => {
     if (!data || data.microsection.type !== 'article') {
@@ -534,12 +611,12 @@ export function MicrosectionPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Content not found'}</p>
+          <p className="text-red-600 mb-4">{error || t('micro.error')}</p>
           <button
             onClick={() => navigate(-1)}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go Back
+            {t('micro.back')}
           </button>
         </div>
       </div>
@@ -550,11 +627,11 @@ export function MicrosectionPage() {
 
   const getTypeLabel = () => {
     switch (microsection.type) {
-      case 'article': return 'Article';
-      case 'video': return 'Video';
-      case 'quiz': return 'Quiz';
-      case 'practice': return 'Practice';
-      default: return 'Lesson';
+      case 'article': return t('micro.type.article');
+      case 'video': return t('micro.type.story');
+      case 'quiz': return t('micro.type.quiz');
+      case 'practice': return t('micro.type.practice');
+      default: return t('micro.type.article');
     }
   };
 
@@ -612,15 +689,17 @@ export function MicrosectionPage() {
             className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 disabled:opacity-60"
             disabled={isStoryLoading}
           >
-            {isStoryLoading ? 'Generating Story...' : 'Story Mode'}
+            {isStoryLoading ? t('micro.generatingStory') : t('micro.storyMode')}
           </button>
-          <button
-            onClick={openBraille}
-            className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-60"
-            disabled={isBrailleLoading}
-          >
-            Braille Output
-          </button>
+          {microsection.type === 'article' && !story && (
+            <button
+              onClick={openBraille}
+              className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-60"
+              disabled={isBrailleLoading}
+            >
+              {t('micro.brailleOutput')}
+            </button>
+          )}
           {storyError && (
             <span className="text-sm text-red-600">{storyError}</span>
           )}
@@ -628,13 +707,25 @@ export function MicrosectionPage() {
 
         {isStoryLoading && (
           <div className="mb-8 p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700">
-            Generating story slides. This can take about a minute.
+            {t('micro.generatingStory')}
+          </div>
+        )}
+
+        {isAudioLoading && (
+          <div className="mb-8 p-4 rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
+            {t('micro.generatingAudio')}
           </div>
         )}
 
         {story && story.status === 'ready' && microsection.type !== 'video' && (
           <div className="mb-10">
-            <StoryPlayer story={story} autoPlay={false} />
+            <StoryPlayer
+              story={story}
+              autoPlay={false}
+              audioSlides={storyAudio?.slides}
+              onRegenerateAudio={() => fetchStoryAudio(story, true)}
+              isAudioLoading={isAudioLoading}
+            />
           </div>
         )}
 
@@ -647,6 +738,9 @@ export function MicrosectionPage() {
             story={story}
             onGenerateStory={fetchStory}
             isStoryLoading={isStoryLoading}
+            audioSlides={storyAudio?.slides}
+            onRegenerateAudio={() => fetchStoryAudio(story ?? undefined, true)}
+            isAudioLoading={isAudioLoading}
           />
         )}
         {microsection.type === 'quiz' && (
@@ -661,7 +755,7 @@ export function MicrosectionPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
           <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Braille Output</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('micro.brailleOutput')}</h3>
               <button
                 onClick={() => setIsBrailleOpen(false)}
                 className="text-slate-500 hover:text-slate-700"
@@ -670,9 +764,9 @@ export function MicrosectionPage() {
                 X
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-auto">
               {isBrailleLoading && (
-                <div className="text-slate-600">Generating braille...</div>
+                <div className="text-slate-600">{t('micro.generatingBraille')}</div>
               )}
               {brailleError && (
                 <div className="text-red-600">{brailleError}</div>
@@ -713,7 +807,7 @@ export function MicrosectionPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Previous
+            {t('micro.previous')}
           </button>
           
           {/* Progress indicator */}
@@ -736,7 +830,7 @@ export function MicrosectionPage() {
             onClick={() => hasNext ? handleNavigate('next') : navigate(`/${classId}/${subjectId}/${chapterSlug}`)}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
           >
-            {hasNext ? 'Next' : 'Finish Section'}
+            {hasNext ? t('micro.next') : t('micro.finish')}
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>

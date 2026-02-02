@@ -2,17 +2,19 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { classes, curricula, storyAssets } from "../db/schema.js";
+import { classes, curricula, storyAssets, storyAudioAssets } from "../db/schema.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 import { generateImage } from "../utils/imageGen.js";
-import { saveBase64File, storageConfig } from "../utils/storage.js";
+import { saveBase64File, saveBufferFile, storageConfig } from "../utils/storage.js";
+import { synthesizeSpeech } from "../utils/tts.js";
 import type {
   StructuredChapter,
   StructuredSection,
   ArticleMicrosection,
   StorySlide,
+  StoryAudioSlide,
 } from "../../types/index.js";
 
 const storyRouter = Router();
@@ -23,6 +25,48 @@ const __dirname = path.dirname(__filename);
 const SAFE_IMAGE_PREFIX = "Kid-safe educational comic illustration, friendly, bright, clean lines, no text, no logos, no violence, no gore, no adult themes";
 
 type StorySlideDraft = Omit<StorySlide, "index" | "imageUrl">;
+
+const normalizeLocale = (locale: string) => {
+  const cleaned = locale.trim();
+  if (cleaned.toLowerCase().startsWith("es")) return "es-ES";
+  if (cleaned.toLowerCase().startsWith("hi")) return "hi-IN";
+  return "en-US";
+};
+
+const translateSlides = async (
+  slides: StorySlide[],
+  locale: string
+): Promise<Array<{ narration: string; caption: string }>> => {
+  if (locale.startsWith("en")) {
+    return slides.map((slide) => ({
+      narration: slide.narration,
+      caption: slide.caption,
+    }));
+  }
+
+  const prompt = `Translate the slide narrations and captions into ${locale}. Return ONLY JSON.
+
+Input:
+${JSON.stringify(slides.map((s) => ({ narration: s.narration, caption: s.caption })))}
+
+Output JSON format:
+{
+  "slides": [
+    { "narration": "...", "caption": "..." }
+  ]
+}
+
+Rules:
+- Keep meaning accurate and educational.
+- Keep captions short (<= 12 words).
+- Return ONLY JSON.`;
+
+  const result = await callGeminiJson<{ slides: Array<{ narration: string; caption: string }> }>(prompt);
+  if (!result?.slides || result.slides.length !== slides.length) {
+    throw new Error("Failed to translate slides");
+  }
+  return result.slides;
+};
 
 const buildStoryKey = (classId: string, subjectId: string, chapterSlug: string, sectionSlug: string) => {
   return `${classId}::${subjectId}::${chapterSlug}::${sectionSlug}`;
@@ -316,6 +360,142 @@ storyRouter.post("/generate", async (req, res) => {
         .where(eq(storyAssets.id, storyRecord.id));
     }
     return res.status(500).json({ error: "Failed to generate story" });
+  }
+});
+
+storyRouter.post("/audio", async (req, res) => {
+  let audioRecord: typeof storyAudioAssets.$inferSelect | undefined;
+  try {
+    console.log("[story/audio] request", req.body);
+    if (!hasGeminiApiKey()) {
+      return res.status(500).json({ error: "Gemini API key is not configured." });
+    }
+
+    const { classId, subjectId, chapterSlug, sectionSlug, locale, force } = req.body as {
+      classId: string;
+      subjectId: string;
+      chapterSlug: string;
+      sectionSlug: string;
+      locale: string;
+      force?: boolean;
+    };
+
+    if (!classId || !subjectId || !chapterSlug || !sectionSlug) {
+      return res.status(400).json({ error: "classId, subjectId, chapterSlug, sectionSlug are required" });
+    }
+
+    const storyKey = buildStoryKey(classId, subjectId, chapterSlug, sectionSlug);
+    const normalizedLocale = normalizeLocale(locale || "en-US");
+
+    const [story] = await db
+      .select()
+      .from(storyAssets)
+      .where(eq(storyAssets.storyKey, storyKey))
+      .limit(1);
+
+    if (!story || story.status !== "ready") {
+      return res.status(404).json({ error: "Story not found or not ready" });
+    }
+
+    const [existingAudio] = await db
+      .select()
+      .from(storyAudioAssets)
+      .where(and(
+        eq(storyAudioAssets.storyId, story.id),
+        eq(storyAudioAssets.locale, normalizedLocale),
+      ))
+      .limit(1);
+
+    if (existingAudio && existingAudio.status === "ready" && !force) {
+      console.log("[story/audio] cache hit", { storyId: story.id, locale: normalizedLocale });
+      return res.json({ story, audio: existingAudio });
+    }
+
+    audioRecord = existingAudio;
+    if (audioRecord && force) {
+      await db
+        .update(storyAudioAssets)
+        .set({
+          status: "pending",
+          slides: [],
+          error: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(storyAudioAssets.id, audioRecord.id));
+    }
+    if (!audioRecord) {
+      const inserted = await db
+        .insert(storyAudioAssets)
+        .values({
+          storyId: story.id,
+          locale: normalizedLocale,
+          status: "pending",
+          slides: [],
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      if (inserted.length > 0) {
+        audioRecord = inserted[0];
+      } else {
+        [audioRecord] = await db
+          .select()
+          .from(storyAudioAssets)
+          .where(and(
+            eq(storyAudioAssets.storyId, story.id),
+            eq(storyAudioAssets.locale, normalizedLocale),
+          ))
+          .limit(1);
+      }
+    }
+
+    const translated = await translateSlides(story.slides as StorySlide[], normalizedLocale);
+    const audioSlides: StoryAudioSlide[] = [];
+    const audioDir = path.join("stories", story.id, "audio", normalizedLocale);
+
+    for (let i = 0; i < story.slides.length; i++) {
+      const slide = story.slides[i] as StorySlide;
+      const translation = translated[i];
+      const narrationText = translation.narration?.trim() || translation.caption || slide.title || " ";
+      console.log("[story/audio] slide", i + 1, "chars", narrationText.length);
+      const audioBuffer = await synthesizeSpeech(narrationText, {
+        languageCode: normalizedLocale,
+      });
+      const fileName = `slide-${String(i + 1).padStart(2, "0")}.wav`;
+      const saved = await saveBufferFile(audioBuffer, path.join(audioDir, fileName));
+
+      audioSlides.push({
+        slideId: slide.id,
+        narration: narrationText,
+        caption: translation.caption || narrationText,
+        audioUrl: saved.publicUrl,
+      });
+    }
+
+    const [updatedAudio] = await db
+      .update(storyAudioAssets)
+      .set({
+        status: "ready",
+        slides: audioSlides,
+        updatedAt: new Date(),
+      })
+      .where(eq(storyAudioAssets.id, audioRecord.id))
+      .returning();
+
+    return res.json({ story, audio: updatedAudio });
+  } catch (error) {
+    console.error("Error generating story audio:", error);
+    if (audioRecord?.id) {
+      await db
+        .update(storyAudioAssets)
+        .set({
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+          updatedAt: new Date(),
+        })
+        .where(eq(storyAudioAssets.id, audioRecord.id));
+    }
+    return res.status(500).json({ error: "Failed to generate story audio" });
   }
 });
 

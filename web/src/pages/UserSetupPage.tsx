@@ -5,7 +5,10 @@ import {
   fetchCurricula,
   fetchSubjectsWithChapters,
 } from '../data/curriculumData';
-import { saveAccessibilityPreferences } from '../utils/accessibility';
+import { saveLanguagePreference } from '../utils/language';
+import { useI18n } from '../components/i18n/useI18n';
+import { useLanguage } from '../components/i18n/LanguageProvider';
+import { useTheme } from '../components/theme/ThemeProvider';
 import type { 
   SetupStep, 
   SetupStepInfo, 
@@ -15,45 +18,32 @@ import type {
   ChapterEntity,
 } from '../types';
 
-const STEPS: SetupStepInfo[] = [
-  { id: 'curriculum', title: 'Curriculum', subtitle: 'Which board do you follow?' },
-  { id: 'grade', title: 'Grade', subtitle: 'What class are you in?' },
-  { id: 'accessibility', title: 'Accessibility', subtitle: 'Tell us how you learn best' },
-  { id: 'chapters', title: 'Chapters', subtitle: 'What would you like to learn?' },
-];
-
 interface SetupData {
   curriculumId: string;
   classId: string;
   chapterIds: string[];
-  accessibility: {
-    adhd: boolean;
-    visuallyImpaired: boolean;
-    deaf: boolean;
-    focusMode: boolean;
-    largeText: boolean;
-    highContrast: boolean;
-    captionsOn: boolean;
-  };
+  language: 'en' | 'es' | 'hi';
+  theme: 'light' | 'dark';
 }
 
 export const UserSetupPage = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useI18n();
+  const { setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const STEPS: SetupStepInfo[] = [
+    { id: 'curriculum', title: t('setup.curriculum'), subtitle: t('setup.subtitle') },
+    { id: 'grade', title: t('setup.grade'), subtitle: t('setup.subtitle') },
+    { id: 'chapters', title: t('setup.chapters'), subtitle: t('setup.subtitle') },
+  ];
   const [currentStep, setCurrentStep] = useState<SetupStep>('curriculum');
   const [setupData, setSetupData] = useState<SetupData>({
     curriculumId: '',
     classId: '',
     chapterIds: [],
-    accessibility: {
-      adhd: false,
-      visuallyImpaired: false,
-      deaf: false,
-      focusMode: false,
-      largeText: false,
-      highContrast: false,
-      captionsOn: true
-    }
+    language: 'en',
+    theme: 'light'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,30 +58,33 @@ export const UserSetupPage = () => {
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (user?.profile?.accessibility) {
+    if (user?.profile?.language) {
       setSetupData(prev => ({
         ...prev,
-        accessibility: {
-          ...prev.accessibility,
-          ...user.profile?.accessibility
-        }
+        language: (user.profile?.language as 'en' | 'es' | 'hi') || 'en'
+      }));
+    }
+    if (user?.profile?.theme) {
+      setSetupData(prev => ({
+        ...prev,
+        theme: (user.profile?.theme as 'light' | 'dark') || 'light'
       }));
     }
   }, [user]);
 
   // Fetch curricula on mount
   useEffect(() => {
-    fetchCurricula()
+    fetchCurricula(setupData.language)
       .then(setCurricula)
       .catch((err) => setError(err.message))
       .finally(() => setIsLoadingCurricula(false));
-  }, []);
+  }, [setupData.language]);
 
   // Fetch subjects with chapters when class changes
   useEffect(() => {
     if (setupData.curriculumId && setupData.classId) {
       setIsLoadingSubjects(true);
-      fetchSubjectsWithChapters(setupData.curriculumId, setupData.classId)
+      fetchSubjectsWithChapters(setupData.curriculumId, setupData.classId, setupData.language)
         .then((data) => {
           setSubjectsWithChapters(data);
           // Auto-expand first subject
@@ -120,8 +113,6 @@ export const UserSetupPage = () => {
         return setupData.curriculumId !== '';
       case 'grade':
         return setupData.classId !== '';
-      case 'accessibility':
-        return true;
       case 'chapters':
         return setupData.chapterIds.length > 0;
       default:
@@ -185,31 +176,6 @@ export const UserSetupPage = () => {
     }));
   };
 
-  const updateAccessibility = (key: keyof SetupData['accessibility'], value: boolean) => {
-    setSetupData(prev => {
-      const next = {
-        ...prev.accessibility,
-        [key]: value
-      };
-
-      // Smart defaults based on needs
-      if (key === 'adhd' && value) {
-        next.focusMode = true;
-      }
-      if (key === 'visuallyImpaired' && value) {
-        next.largeText = true;
-        next.highContrast = true;
-      }
-      if (key === 'deaf' && value) {
-        next.captionsOn = true;
-      }
-
-      return {
-        ...prev,
-        accessibility: next
-      };
-    });
-  };
 
   const toggleAllChaptersInSubject = (subject: SubjectWithChapters) => {
     const subjectChapterIds = subject.chapters.map(c => c.id);
@@ -240,7 +206,8 @@ export const UserSetupPage = () => {
             curriculumId: setupData.curriculumId,
             classId: setupData.classId,
             chapterIds: setupData.chapterIds,
-            accessibility: setupData.accessibility
+            language: setupData.language,
+            theme: setupData.theme
           },
           curriculumId: setupData.curriculumId,
           classId: setupData.classId
@@ -250,7 +217,7 @@ export const UserSetupPage = () => {
       const data = await response.json();
 
       if (response.ok && data.user?.isProfileComplete) {
-        saveAccessibilityPreferences(setupData.accessibility);
+        saveLanguagePreference(setupData.language);
         navigate('/dashboard');
       } else {
         setError(data.error || 'Failed to save profile');
@@ -284,7 +251,7 @@ export const UserSetupPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
+          <p className="text-slate-600">{t('setup.loading')}</p>
         </div>
       </div>
     );
@@ -318,7 +285,7 @@ export const UserSetupPage = () => {
             <span className="font-bold text-xl text-slate-800">LearnHub</span>
           </div>
           <div className="text-sm text-slate-600">
-            Welcome, <span className="font-semibold text-slate-800">{user.name}</span>
+            {t('setup.welcome')}, <span className="font-semibold text-slate-800">{user.name}</span>
           </div>
         </div>
       </header>
@@ -367,6 +334,37 @@ export const UserSetupPage = () => {
 
           {/* Step Content */}
           <div className="p-8">
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-sm font-semibold text-slate-700 mb-3">{t('setup.preferences')}</div>
+              <div className="flex flex-wrap gap-3 items-center">
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('controls.language')}</label>
+                <select
+                  value={setupData.language}
+                  onChange={(event) => {
+                    const next = event.target.value as 'en' | 'es' | 'hi';
+                    setSetupData(prev => ({ ...prev, language: next }));
+                    setLanguage(next);
+                    saveLanguagePreference(next);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <option value="en">US English 🇺🇸</option>
+                  <option value="es">ES Espanol 🇪🇸</option>
+                  <option value="hi">IN Hindi 🇮🇳</option>
+                </select>
+                <span className="ml-2 text-xs font-semibold text-slate-600 uppercase tracking-wide">{t('controls.themeToggle')}</span>
+                <button
+                  onClick={() => {
+                    const next = theme === 'dark' ? 'light' : 'dark';
+                    setSetupData(prev => ({ ...prev, theme: next }));
+                    setTheme(next);
+                  }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  {theme === 'dark' ? `🌙 ${t('controls.themeDark')}` : `☀️ ${t('controls.themeLight')}`}
+                </button>
+              </div>
+            </div>
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 font-medium">{error}</p>
@@ -377,7 +375,7 @@ export const UserSetupPage = () => {
             {currentStep === 'curriculum' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  Choose your education board. We'll show you content tailored to your curriculum.
+                  {t('setup.boardHint')}
                 </p>
                 <div className="grid md:grid-cols-2 gap-4">
                   {curricula.map((curriculum) => (
@@ -402,7 +400,7 @@ export const UserSetupPage = () => {
             {currentStep === 'grade' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  What class are you currently in? This helps us show you the right content.
+                  {t('setup.gradeHint')}
                 </p>
                 {selectedCurriculum && (
                   <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -428,96 +426,11 @@ export const UserSetupPage = () => {
               </div>
             )}
 
-            {/* Step 3: Accessibility */}
-            {currentStep === 'accessibility' && (
-              <div className="space-y-6">
-                <p className="text-slate-600">
-                  Help us personalize your learning experience. Choose any that apply. You can change these later.
-                </p>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <label className="flex items-start gap-3 p-4 border-2 rounded-xl border-slate-200 hover:border-blue-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={setupData.accessibility.adhd}
-                      onChange={(e) => updateAccessibility('adhd', e.target.checked)}
-                    />
-                    <div>
-                      <h3 className="font-semibold text-slate-900">ADHD / Focus Support</h3>
-                      <p className="text-sm text-slate-600">Enable focus mode, chunked lessons, and gentle pacing.</p>
-                    </div>
-                  </label>
-                  <label className="flex items-start gap-3 p-4 border-2 rounded-xl border-slate-200 hover:border-blue-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={setupData.accessibility.visuallyImpaired}
-                      onChange={(e) => updateAccessibility('visuallyImpaired', e.target.checked)}
-                    />
-                    <div>
-                      <h3 className="font-semibold text-slate-900">Visually Impaired</h3>
-                      <p className="text-sm text-slate-600">Large text, high contrast, and braille-ready lessons.</p>
-                    </div>
-                  </label>
-                  <label className="flex items-start gap-3 p-4 border-2 rounded-xl border-slate-200 hover:border-blue-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={setupData.accessibility.deaf}
-                      onChange={(e) => updateAccessibility('deaf', e.target.checked)}
-                    />
-                    <div>
-                      <h3 className="font-semibold text-slate-900">Deaf / Hard of Hearing</h3>
-                      <p className="text-sm text-slate-600">Always show captions and visual cues.</p>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <h4 className="font-semibold text-slate-800 mb-3">Preferences</h4>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <label className="flex items-center gap-3 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={setupData.accessibility.focusMode}
-                        onChange={(e) => updateAccessibility('focusMode', e.target.checked)}
-                      />
-                      Focus mode by default
-                    </label>
-                    <label className="flex items-center gap-3 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={setupData.accessibility.largeText}
-                        onChange={(e) => updateAccessibility('largeText', e.target.checked)}
-                      />
-                      Large text
-                    </label>
-                    <label className="flex items-center gap-3 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={setupData.accessibility.highContrast}
-                        onChange={(e) => updateAccessibility('highContrast', e.target.checked)}
-                      />
-                      High contrast
-                    </label>
-                    <label className="flex items-center gap-3 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={setupData.accessibility.captionsOn}
-                        onChange={(e) => updateAccessibility('captionsOn', e.target.checked)}
-                      />
-                      Captions always on
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Step 3: Chapters (grouped by subject) */}
             {currentStep === 'chapters' && (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-6">
-                  Select the chapters you want to study. Expand each subject to see available chapters.
+                  {t('setup.chaptersHint')}
                 </p>
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
                   <span className="font-medium text-blue-800">{selectedCurriculum?.name}</span>
@@ -530,7 +443,7 @@ export const UserSetupPage = () => {
                 {isLoadingSubjects ? (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-slate-500">Loading chapters...</p>
+                    <p className="text-slate-500">{t('setup.loading')}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -648,7 +561,7 @@ export const UserSetupPage = () => {
                   : 'text-slate-400 cursor-not-allowed'
               }`}
             >
-              Back
+              {t('setup.back')}
             </button>
 
             {isLastStep ? (
@@ -661,7 +574,7 @@ export const UserSetupPage = () => {
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                {isSubmitting ? 'Setting up...' : 'Complete Setup ✓'}
+                {isSubmitting ? t('setup.loading') : `${t('setup.finish')} ✓`}
               </button>
             ) : (
               <button
@@ -673,7 +586,7 @@ export const UserSetupPage = () => {
                     : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                 }`}
               >
-                Continue →
+                {t('setup.next')} →
               </button>
             )}
           </div>

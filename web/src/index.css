@@ -94,6 +94,10 @@ body {
   background-color: #fafaf8; /* surface-50 */
 }
 
+#main-content {
+  padding-top: 56px;
+}
+
 /* Skip link for keyboard users */
 .skip-link {
   position: absolute;
@@ -122,16 +126,112 @@ body {
   font-size: 112.5%;
 }
 
-:root[data-contrast="high"] body {
-  background: #ffffff;
-  color: #0a0a0a;
+/* Dark mode palette */
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
-:root[data-contrast="high"] a,
-:root[data-contrast="high"] button,
-:root[data-contrast="high"] [role="button"] {
-  color: inherit;
+:root[data-theme="dark"] body {
+  background-color: #0b1220;
+  color: #e2e8f0;
 }
+
+:root[data-theme="dark"] .bg-white {
+  background-color: #111b2d !important;
+}
+
+:root[data-theme="dark"] .bg-slate-50 {
+  background-color: #0d1627 !important;
+}
+
+:root[data-theme="dark"] .bg-slate-100 {
+  background-color: #0f1c31 !important;
+}
+
+:root[data-theme="dark"] .bg-gradient-to-br,
+:root[data-theme="dark"] .bg-gradient-to-r,
+:root[data-theme="dark"] .bg-gradient-to-b,
+:root[data-theme="dark"] .bg-gradient-to-t {
+  background-image: none !important;
+  background-color: #0f1b30 !important;
+}
+
+:root[data-theme="dark"] .from-white,
+:root[data-theme="dark"] .via-white,
+:root[data-theme="dark"] .to-white {
+  background-color: #0f1b30 !important;
+}
+
+:root[data-theme="dark"] .border-slate-200,
+:root[data-theme="dark"] .border-slate-100 {
+  border-color: #1f2c44 !important;
+}
+
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-slate-800,
+:root[data-theme="dark"] .text-slate-700,
+:root[data-theme="dark"] .text-surface-900,
+:root[data-theme="dark"] .text-surface-800,
+:root[data-theme="dark"] .text-surface-700 {
+  color: #e2e8f0 !important;
+}
+
+:root[data-theme="dark"] .text-slate-600,
+:root[data-theme="dark"] .text-slate-500,
+:root[data-theme="dark"] .text-slate-400,
+:root[data-theme="dark"] .text-surface-600,
+:root[data-theme="dark"] .text-surface-500,
+:root[data-theme="dark"] .text-surface-400 {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme="dark"] .bg-surface-50,
+:root[data-theme="dark"] .bg-surface-100,
+:root[data-theme="dark"] .bg-surface-200 {
+  background-color: #0f1b30 !important;
+}
+
+:root[data-theme="dark"] .border-surface-200,
+:root[data-theme="dark"] .border-surface-300 {
+  border-color: #1f2c44 !important;
+}
+
+:root[data-theme="dark"] .bg-surface-900 {
+  background-color: #0b1220 !important;
+}
+
+:root[data-theme="dark"] .text-white {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme="dark"] .bg-blue-600 {
+  background-color: #1d4ed8 !important;
+}
+
+:root[data-theme="dark"] .bg-indigo-600 {
+  background-color: #334155 !important;
+}
+
+:root[data-theme="dark"] .bg-indigo-50,
+:root[data-theme="dark"] .bg-blue-50 {
+  background-color: #0f1b30 !important;
+}
+
+/* Disable bright gradients for a solid dark blue surface */
+
+:root[data-theme="dark"] .prose {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .prose a {
+  color: #7dd3fc;
+}
+
+:root[data-theme="dark"] .focus-mode-surface {
+  background: #0f1b30 !important;
+  border-color: #1f2c44 !important;
+}
+
 
 :root[data-reduce-motion="true"] * {
   animation-duration: 0.01ms !important;
@@ -212,4 +312,26 @@ a,
 button:active:not(:disabled),
 [role="button"]:active:not(:disabled) {
   transform: translateY(0.5px);
+}
+:root[data-theme="dark"] .bg-gradient-to-br,
+:root[data-theme="dark"] .bg-gradient-to-r,
+:root[data-theme="dark"] .bg-gradient-to-b,
+:root[data-theme="dark"] .bg-gradient-to-t {
+  background-image: none !important;
+  background-color: #0f1b30 !important;
+}
+
+:root[data-theme="dark"] .bg-white\\/80,
+:root[data-theme="dark"] .bg-white\\/90,
+:root[data-theme="dark"] .bg-white\\/95 {
+  background-color: rgba(15, 27, 48, 0.95) !important;
+}
+
+:root[data-theme="dark"] .from-primary-500,
+:root[data-theme="dark"] .from-primary-600,
+:root[data-theme="dark"] .from-secondary-600,
+:root[data-theme="dark"] .from-tertiary-500,
+:root[data-theme="dark"] .to-secondary-700,
+:root[data-theme="dark"] .to-tertiary-600 {
+  background-color: #0f1b30 !important;
 }

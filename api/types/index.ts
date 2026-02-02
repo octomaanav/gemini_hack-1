@@ -3,14 +3,11 @@
 // =============================================================================
 
 export interface AccessibilityPreferences {
-  adhd?: boolean;
-  visuallyImpaired?: boolean;
-  deaf?: boolean;
   focusMode?: boolean;
-  highContrast?: boolean;
   largeText?: boolean;
   reduceMotion?: boolean;
   captionsOn?: boolean;
+  signsOn?: boolean;
 }
 
 export interface UserProfile {
@@ -18,6 +15,8 @@ export interface UserProfile {
   classId: string;
   chapterIds: string[];
   accessibility?: AccessibilityPreferences;
+  language?: string;
+  theme?: 'light' | 'dark';
 }
 
 export interface User {
@@ -277,6 +276,24 @@ export interface StoryAsset {
   renderType: "slides" | "video";
   slides: StorySlide[];
   videoUrl?: string | null;
+  error?: string | null;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
+export interface StoryAudioSlide {
+  slideId: string;
+  narration: string;
+  caption: string;
+  audioUrl: string;
+}
+
+export interface StoryAudioAsset {
+  id: string;
+  storyId: string;
+  locale: string;
+  status: "pending" | "ready" | "error";
+  slides: StoryAudioSlide[];
   error?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;

@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import type { UserProfile, CurriculumWithGrades, SubjectWithChapters, ChapterEntity } from '../types';
+import type { UserProfile, CurriculumWithGrades, SubjectWithChapters } from '../types';
 import { fetchCurricula, fetchSubjectsWithChapters } from '../data/curriculumData';
+import { useI18n } from '../components/i18n/useI18n';
+import { useLanguage } from '../components/i18n/LanguageProvider';
 
 function Dashboard() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const { language } = useLanguage();
   
   const [selectedSubject, setSelectedSubject] = useState<SubjectWithChapters | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<ChapterEntity | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [subjectsWithChapters, setSubjectsWithChapters] = useState<SubjectWithChapters[]>([]);
   const [curricula, setCurricula] = useState<CurriculumWithGrades[]>([]);
@@ -17,10 +20,10 @@ function Dashboard() {
 
   // Fetch curricula on mount
   useEffect(() => {
-    fetchCurricula()
+    fetchCurricula(language)
       .then(setCurricula)
       .catch(console.error);
-  }, []);
+  }, [language]);
 
   // Extract user profile and fetch subjects with chapters
   useEffect(() => {
@@ -29,7 +32,7 @@ function Dashboard() {
       
       if (user.profile.curriculumId && user.profile.classId) {
         setIsLoadingData(true);
-        fetchSubjectsWithChapters(user.profile.curriculumId, user.profile.classId)
+        fetchSubjectsWithChapters(user.profile.curriculumId, user.profile.classId, language)
           .then((allSubjects) => {
             // Filter chapters to only user's selected chapters
             const filteredSubjects = allSubjects
@@ -55,7 +58,7 @@ function Dashboard() {
     } else {
       setIsLoadingData(false);
     }
-  }, [user]);
+  }, [user, language]);
 
   // Get chapters for selected subject
   const chapters = selectedSubject?.chapters || [];
@@ -65,7 +68,7 @@ function Dashboard() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading your dashboard...</p>
+          <p className="text-slate-600">{t('dashboard.loading')}</p>
         </div>
       </div>
     );
@@ -75,12 +78,12 @@ function Dashboard() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-600 mb-4">Please log in to access your dashboard</p>
+          <p className="text-slate-600 mb-4">{t('dashboard.loginPrompt')}</p>
           <button
             onClick={() => navigate('/login')}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go to Login
+            {t('dashboard.loginButton')}
           </button>
         </div>
       </div>
@@ -92,13 +95,13 @@ function Dashboard() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-2xl shadow-lg max-w-md">
           <div className="text-5xl mb-4">👋</div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome!</h2>
-          <p className="text-slate-600 mb-6">Let's set up your learning profile to get started.</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('dashboard.setupTitle')}</h2>
+          <p className="text-slate-600 mb-6">{t('dashboard.setupSubtitle')}</p>
           <button
             onClick={() => navigate('/setup')}
             className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 font-semibold"
           >
-            Complete Setup
+            {t('dashboard.setupButton')}
           </button>
         </div>
       </div>
@@ -131,7 +134,7 @@ function Dashboard() {
                 L
               </div>
               <div>
-                <h1 className="font-bold text-xl text-slate-800">LearnHub</h1>
+                <h1 className="font-bold text-xl text-slate-800">{t('app.name')}</h1>
                 <p className="text-xs text-slate-500">
                   {getCurriculumName(userProfile.curriculumId)} • {getGradeName(userProfile.classId)}
                 </p>
@@ -192,7 +195,7 @@ function Dashboard() {
                   onClick={() => navigate('/accessibility-guide')}
                   className="w-full mt-2 p-3 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all flex items-center justify-center gap-2"
                 >
-                  Accessibility Guide
+                  {t('dashboard.learningGuide')}
                 </button>
               </div>
             </div>
@@ -207,7 +210,7 @@ function Dashboard() {
                   <div>
                     <h2 className="text-2xl font-bold">{selectedSubject.name}</h2>
                     <p className="text-blue-100">
-                      {selectedSubject.chapters.length} chapters selected
+                    {selectedSubject.chapters.length} {t('dashboard.chaptersSelected')}
                     </p>
                   </div>
                 </div>
@@ -217,12 +220,12 @@ function Dashboard() {
                   {chapters.map((chapter, index) => (
                     <button
                       key={chapter.id}
-                      onClick={() => setSelectedChapter(chapter)}
-                      className={`p-5 bg-white rounded-xl border-2 text-left transition-all hover:shadow-lg ${
-                        selectedChapter?.id === chapter.id
-                          ? 'border-blue-500 shadow-md'
-                          : 'border-slate-200 hover:border-blue-300'
-                      }`}
+                      onClick={() => {
+                        if (selectedSubject && userProfile) {
+                          navigate(`/${userProfile.classId}/${selectedSubject.slug}/${chapter.slug}`);
+                        }
+                      }}
+                      className="p-5 bg-white rounded-xl border-2 text-left transition-all hover:shadow-lg border-slate-200 hover:border-blue-300"
                     >
                       <div className="flex items-start gap-4">
                         <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 font-bold">
@@ -237,32 +240,16 @@ function Dashboard() {
                   ))}
                 </div>
 
-                {/* Selected Chapter Content */}
-                {selectedChapter && (
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6">
-                    <h3 className="text-xl font-bold text-slate-900 mb-4">{selectedChapter.name}</h3>
-                    <p className="text-slate-600 mb-4">{selectedChapter.description}</p>
-                    <div className="mt-6 flex gap-4">
-                      <button 
-                        onClick={() => {
-                          if (selectedChapter && selectedSubject && userProfile) {
-                            navigate(`/${userProfile.classId}/${selectedSubject.slug}/${selectedChapter.slug}`);
-                          }
-                        }}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all"
-                      >
-                        View Chapter
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <div className="text-sm text-slate-500">
+                  {t('dashboard.selectChapter')}
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
                 <div className="text-5xl mb-4">👈</div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Select a Subject</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{t('dashboard.selectSubject')}</h3>
                 <p className="text-slate-600">
-                  Choose a subject from the sidebar to view your selected chapters.
+                  {t('dashboard.selectSubjectHint')}
                 </p>
               </div>
             )}
@@ -272,24 +259,24 @@ function Dashboard() {
           <aside className="w-64 shrink-0">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sticky top-24">
               <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4">
-                Your Profile
+                {t('dashboard.profile')}
               </h2>
               
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Board</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">{t('dashboard.board')}</p>
                   <p className="font-medium text-slate-900">{getCurriculumName(userProfile.curriculumId)}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Grade</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">{t('dashboard.grade')}</p>
                   <p className="font-medium text-slate-900">{getGradeName(userProfile.classId)}</p>
                 </div>
                 
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-2">Chapters Selected</p>
-                  <p className="font-medium text-slate-900">{totalChapters} chapters</p>
-                  <p className="text-xs text-slate-500">across {subjectsWithChapters.length} subjects</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-2">{t('dashboard.chaptersSelectedLabel')}</p>
+                  <p className="font-medium text-slate-900">{totalChapters} {t('dashboard.totalChapters')}</p>
+                  <p className="text-xs text-slate-500">{t('dashboard.acrossSubjects', { count: subjectsWithChapters.length })}</p>
                 </div>
               </div>
             </div>

@@ -45,3 +45,22 @@ export const saveBase64File = async (base64: string, relativePath: string): Prom
     publicUrl,
   };
 };
+
+export const saveBufferFile = async (buffer: Buffer, relativePath: string): Promise<SavedAsset> => {
+  if (storageConfig.provider !== "local") {
+    throw new Error("Only local storage is configured. Set MEDIA_STORAGE_PROVIDER=local or implement a remote provider.");
+  }
+
+  const safeRelativePath = relativePath.replace(/^[\\/]+/, "");
+  const absolutePath = path.join(storageConfig.localRoot, safeRelativePath);
+
+  await ensureDir(path.dirname(absolutePath));
+  await fs.promises.writeFile(absolutePath, buffer);
+
+  const publicUrl = `${storageConfig.publicBaseUrl}/${safeRelativePath.replace(/\\/g, "/")}`;
+
+  return {
+    absolutePath,
+    publicUrl,
+  };
+};

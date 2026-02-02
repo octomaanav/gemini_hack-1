@@ -4,10 +4,10 @@ import { loadAccessibilityPreferences, saveAccessibilityPreferences } from '../.
 
 interface AccessibilityContextValue extends AccessibilityPreferences {
   toggleFocusMode: () => void;
-  toggleHighContrast: () => void;
   toggleLargeText: () => void;
   toggleReduceMotion: () => void;
   toggleCaptions: () => void;
+  toggleSigns: () => void;
   setFocusMode: (value: boolean) => void;
 }
 
@@ -18,7 +18,6 @@ const applySettingsToDocument = (settings: AccessibilityPreferences) => {
   const root = document.documentElement;
 
   root.dataset.focusMode = settings.focusMode ? 'true' : 'false';
-  root.dataset.contrast = settings.highContrast ? 'high' : 'normal';
   root.dataset.textSize = settings.largeText ? 'large' : 'normal';
   root.dataset.reduceMotion = settings.reduceMotion ? 'true' : 'false';
   root.dataset.captions = settings.captionsOn ? 'true' : 'false';
@@ -65,26 +64,21 @@ export const AccessibilityProvider = ({ children }: { children: React.ReactNode 
 
   const value = useMemo<AccessibilityContextValue>(() => {
     return {
-      adhd: !!settings.adhd,
-      visuallyImpaired: !!settings.visuallyImpaired,
-      deaf: !!settings.deaf,
       focusMode: !!settings.focusMode,
-      highContrast: !!settings.highContrast,
       largeText: !!settings.largeText,
       reduceMotion: !!settings.reduceMotion,
-      captionsOn: settings.deaf ? true : settings.captionsOn !== false,
+      captionsOn: settings.captionsOn !== false,
+      signsOn: settings.signsOn !== false,
       toggleFocusMode: () =>
         setSettings((prev) => ({ ...prev, focusMode: !prev.focusMode })),
-      toggleHighContrast: () =>
-        setSettings((prev) => ({ ...prev, highContrast: !prev.highContrast })),
       toggleLargeText: () =>
         setSettings((prev) => ({ ...prev, largeText: !prev.largeText })),
       toggleReduceMotion: () =>
         setSettings((prev) => ({ ...prev, reduceMotion: !prev.reduceMotion })),
       toggleCaptions: () =>
-        setSettings((prev) =>
-          prev.deaf ? prev : { ...prev, captionsOn: !prev.captionsOn }
-        ),
+        setSettings((prev) => ({ ...prev, captionsOn: !prev.captionsOn })),
+      toggleSigns: () =>
+        setSettings((prev) => ({ ...prev, signsOn: !prev.signsOn })),
       setFocusMode: (value: boolean) => setSettings((prev) => ({ ...prev, focusMode: value })),
     };
   }, [settings]);

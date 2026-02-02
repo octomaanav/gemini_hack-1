@@ -30,15 +30,5 @@ export const syncAccessibilityFromProfile = (profile?: AccessibilityPreferences 
     ...profile,
   };
 
-  if (profile.adhd && merged.focusMode === undefined) {
-    merged.focusMode = true;
-  }
-  if (profile.deaf && merged.captionsOn === undefined) {
-    merged.captionsOn = true;
-  }
-  if (profile.visuallyImpaired && merged.largeText === undefined) {
-    merged.largeText = true;
-  }
-
   saveAccessibilityPreferences(merged);
 };

@@ -1,9 +1,65 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { curricula, classes, subjects, gradeSubjects, chapters } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { curricula, classes, subjects, gradeSubjects, chapters, contentTranslations } from "../db/schema.js";
+import { eq, and } from "drizzle-orm";
+import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 
 const curriculumRouter = Router();
+
+const normalizeLocale = (locale?: string) => {
+  if (!locale) return "en-US";
+  const cleaned = locale.trim();
+  if (cleaned.toLowerCase().startsWith("es")) return "es-ES";
+  if (cleaned.toLowerCase().startsWith("hi")) return "hi-IN";
+  return "en-US";
+};
+
+const buildContentKey = (parts: Record<string, string>) => {
+  return Object.entries(parts)
+    .map(([key, value]) => `${key}:${value}`)
+    .join("|");
+};
+
+const translatePayload = async (payload: unknown, locale: string, contentKey: string, contentType: string) => {
+  const [cached] = await db
+    .select()
+    .from(contentTranslations)
+    .where(and(
+      eq(contentTranslations.contentKey, contentKey),
+      eq(contentTranslations.contentType, contentType),
+      eq(contentTranslations.locale, locale),
+    ))
+    .limit(1);
+
+  if (cached?.payload) {
+    return cached.payload;
+  }
+
+  if (!hasGeminiApiKey()) {
+    throw new Error("Gemini API key is not configured.");
+  }
+
+  const prompt = `Translate the following curriculum payload into ${locale}.
+Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings.
+
+Payload:
+${JSON.stringify(payload)}
+`;
+
+  const translated = await callGeminiJson(prompt);
+
+  await db
+    .insert(contentTranslations)
+    .values({
+      contentKey,
+      contentType,
+      locale,
+      payload: translated,
+    })
+    .onConflictDoNothing();
+
+  return translated;
+};
 
 /**
  * GET /api/curriculum
@@ -11,6 +67,7 @@ const curriculumRouter = Router();
  */
 curriculumRouter.get("/", async (req, res) => {
   try {
+    const locale = normalizeLocale(req.query.lang as string | undefined);
     const allCurricula = await db
       .select()
       .from(curricula)
@@ -31,6 +88,11 @@ curriculumRouter.get("/", async (req, res) => {
       })
     );
 
+    if (!locale.startsWith("en")) {
+      const translated = await translatePayload(result, locale, "curriculum:list", "curriculum_list");
+      return res.json(translated);
+    }
+
     res.json(result);
   } catch (error) {
     console.error("Error fetching curricula:", error);
@@ -45,6 +107,7 @@ curriculumRouter.get("/", async (req, res) => {
 curriculumRouter.get("/:curriculumId", async (req, res) => {
   try {
     const { curriculumId } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
 
     const [curriculum] = await db
       .select()
@@ -62,10 +125,17 @@ curriculumRouter.get("/:curriculumId", async (req, res) => {
       .where(eq(classes.curriculumId, curriculum.id))
       .orderBy(classes.sortOrder);
 
-    res.json({
+    const payload = {
       ...curriculum,
       grades: curriculumClasses, // Keep 'grades' key for frontend compatibility
-    });
+    };
+
+    if (!locale.startsWith("en")) {
+      const translated = await translatePayload(payload, locale, `curriculum:${curriculumId}`, "curriculum");
+      return res.json(translated);
+    }
+
+    res.json(payload);
   } catch (error) {
     console.error("Error fetching curriculum:", error);
     res.status(500).json({ error: "Failed to fetch curriculum" });
@@ -79,6 +149,7 @@ curriculumRouter.get("/:curriculumId", async (req, res) => {
 curriculumRouter.get("/:curriculumId/grades/:classId/subjects", async (req, res) => {
   try {
     const { curriculumId, classId } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
 
     // Verify class belongs to curriculum
     const [classItem] = await db
@@ -128,6 +199,16 @@ curriculumRouter.get("/:curriculumId/grades/:classId/subjects", async (req, res)
       })
     );
 
+    if (!locale.startsWith("en")) {
+      const translated = await translatePayload(
+        result,
+        locale,
+        buildContentKey({ curriculumId, classId }),
+        "subjects_with_chapters"
+      );
+      return res.json(translated);
+    }
+
     res.json(result);
   } catch (error) {
     console.error("Error fetching subjects:", error);
@@ -160,6 +241,7 @@ curriculumRouter.get("/subjects/all", async (req, res) => {
 curriculumRouter.get("/by-slug/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
+    const locale = normalizeLocale(req.query.lang as string | undefined);
 
     const [curriculum] = await db
       .select()
@@ -177,10 +259,17 @@ curriculumRouter.get("/by-slug/:slug", async (req, res) => {
       .where(eq(classes.curriculumId, curriculum.id))
       .orderBy(classes.sortOrder);
 
-    res.json({
+    const payload = {
       ...curriculum,
       grades: curriculumClasses, // Keep 'grades' key for frontend compatibility
-    });
+    };
+
+    if (!locale.startsWith("en")) {
+      const translated = await translatePayload(payload, locale, `curriculum:slug:${slug}`, "curriculum");
+      return res.json(translated);
+    }
+
+    res.json(payload);
   } catch (error) {
     console.error("Error fetching curriculum:", error);
     res.status(500).json({ error: "Failed to fetch curriculum" });

@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import type { StructuredChapter, StructuredSection, Microsection, MicrosectionType, ArticleMicrosection } from '../types';
 import { extractArticleRawText } from '../utils/textExtractor';
+import { useI18n } from '../components/i18n/useI18n';
+import { useLanguage } from '../components/i18n/LanguageProvider';
 
 // Icon components for different microsection types
 const ArticleIcon = () => (
@@ -40,16 +42,6 @@ const getMicrosectionIcon = (type: MicrosectionType) => {
   }
 };
 
-const getMicrosectionLabel = (type: MicrosectionType) => {
-  switch (type) {
-    case 'article': return 'Article';
-    case 'video': return 'Video';
-    case 'quiz': return 'Quiz';
-    case 'practice': return 'Practice';
-    default: return 'Lesson';
-  }
-};
-
 const getMicrosectionColor = (type: MicrosectionType) => {
   switch (type) {
     case 'article': return { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-600', hover: 'hover:bg-blue-100' };
@@ -67,6 +59,18 @@ export function ChapterPage() {
     subjectId: string;
     chapterSlug: string;
   }>();
+  const { t } = useI18n();
+  const { language } = useLanguage();
+
+  const getMicrosectionLabel = (type: MicrosectionType) => {
+    switch (type) {
+      case 'article': return t('micro.type.article');
+      case 'video': return t('micro.type.story');
+      case 'quiz': return t('micro.type.quiz');
+      case 'practice': return t('micro.type.practice');
+      default: return t('micro.type.article');
+    }
+  };
   
   useAuth(); // Ensure user is authenticated
   const [chapter, setChapter] = useState<StructuredChapter | null>(null);
@@ -88,7 +92,7 @@ export function ChapterPage() {
       try {
         // Fetch the structured curriculum JSON data
         const response = await fetch(
-          `http://localhost:8000/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}`
+          `http://localhost:8000/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}?lang=${language}`
         );
         
         if (!response.ok) throw new Error('Failed to fetch chapter data');
@@ -103,14 +107,14 @@ export function ChapterPage() {
         
       } catch (err) {
         console.error('Error fetching chapter data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load chapter');
+        setError(err instanceof Error ? err.message : t('chapter.error'));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchChapterData();
-  }, [classId, subjectId, chapterSlug]);
+  }, [classId, subjectId, chapterSlug, language]);
 
   useEffect(() => {
     const handleBrailleOpen = () => {
@@ -182,7 +186,7 @@ export function ChapterPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading chapter...</p>
+          <p className="text-slate-600">{t('chapter.loading')}</p>
         </div>
       </div>
     );
@@ -251,7 +255,7 @@ export function ChapterPage() {
               className="px-4 py-2 rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 disabled:opacity-60"
               disabled={isBrailleLoading}
             >
-              Braille Guide
+              {t('chapter.brailleGuide')}
             </button>
           </div>
         </div>
@@ -340,7 +344,7 @@ export function ChapterPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
           <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Braille Guide</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('chapter.brailleGuide')}</h3>
               <button
                 onClick={() => setIsBrailleOpen(false)}
                 className="text-slate-500 hover:text-slate-700"
@@ -349,9 +353,9 @@ export function ChapterPage() {
                 X
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-auto">
               {isBrailleLoading && (
-                <div className="text-slate-600">Generating braille...</div>
+                <div className="text-slate-600">{t('chapter.generateBraille')}</div>
               )}
               {brailleError && (
                 <div className="text-red-600">{brailleError}</div>

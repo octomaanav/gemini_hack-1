@@ -15,6 +15,20 @@
       "when": 1769815850000,
       "tag": "0001_story_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769815851000,
+      "tag": "0002_story_audio_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1769815852000,
+      "tag": "0003_content_translations",
+      "breakpoints": true
     }
   ]
 }

@@ -3,14 +3,11 @@
 // =============================================================================
 
 export interface AccessibilityPreferences {
-  adhd?: boolean;
-  visuallyImpaired?: boolean;
-  deaf?: boolean;
   focusMode?: boolean;
-  highContrast?: boolean;
   largeText?: boolean;
   reduceMotion?: boolean;
   captionsOn?: boolean;
+  signsOn?: boolean;
 }
 
 export interface UserProfile {
@@ -18,6 +15,8 @@ export interface UserProfile {
   classId: string;
   chapterIds: string[];
   accessibility?: AccessibilityPreferences;
+  language?: string;
+  theme?: 'light' | 'dark';
 }
 
 export interface User {
@@ -262,6 +261,24 @@ export interface StoryAsset {
   updatedAt?: string;
 }
 
+export interface StoryAudioSlide {
+  slideId: string;
+  narration: string;
+  caption: string;
+  audioUrl: string;
+}
+
+export interface StoryAudioAsset {
+  id: string;
+  storyId: string;
+  locale: string;
+  status: "pending" | "ready" | "error";
+  slides: StoryAudioSlide[];
+  error?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // LessonContent - legacy format for backward compatibility
 export interface LessonContent {
   introduction: string;
@@ -392,7 +409,7 @@ export interface Chapter {
 // SETUP PAGE TYPES
 // =============================================================================
 
-export type SetupStep = 'curriculum' | 'grade' | 'accessibility' | 'chapters';
+export type SetupStep = 'curriculum' | 'grade' | 'chapters';
 
 export interface SetupStepInfo {
   id: SetupStep;

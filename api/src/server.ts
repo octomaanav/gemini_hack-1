@@ -18,6 +18,22 @@ import storyRouter from "./routes/story.js";
 import { storageConfig } from "./utils/storage.js";
 
 const app = express();
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    const ms = Date.now() - start;
+    console.log(`[api] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`, body);
+    return originalJson(body);
+  };
+  res.on("finish", () => {
+    if (res.headersSent && res.statusCode !== 200) {
+      console.log(`[api] ${req.method} ${req.originalUrl} ${res.statusCode}`);
+    }
+  });
+  next();
+});
 // CORS configuration
 app.use(
   cors({

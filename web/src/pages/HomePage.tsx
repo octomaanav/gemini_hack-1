@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useI18n } from '../components/i18n/useI18n';
 
 function HomePage() {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-50 via-primary-50/30 to-secondary-50/20">
       {/* Navigation */}
@@ -10,7 +12,7 @@ function HomePage() {
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 via-primary-600 to-teal-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-200">
               <span className="text-white text-base font-bold">L</span>
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent">LearnHub</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-primary-700 to-secondary-600 bg-clip-text text-transparent">{t('app.name')}</span>
           </Link>
           
           <div className="flex items-center gap-3">
@@ -18,13 +20,13 @@ function HomePage() {
               to="/login"
               className="px-4 py-2 text-sm font-semibold text-primary-700 hover:text-primary-900 border-2 border-primary-300 rounded-xl hover:border-primary-500 hover:bg-primary-50/50 cursor-pointer transition-all duration-150 shadow-sm hover:shadow-md"
             >
-              Log in
+              {t('nav.login')}
             </Link>
             <Link
               to="/signup"
               className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-secondary-600 to-secondary-700 rounded-xl hover:from-secondary-700 hover:to-secondary-800 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 active:shadow-md"
             >
-              Get started
+              {t('nav.getStarted')}
             </Link>
           </div>
         </div>
@@ -34,17 +36,17 @@ function HomePage() {
       <section className="max-w-6xl mx-auto px-6 pt-24 pb-32">
         <div className="max-w-4xl">
           <div className="inline-block mb-6 px-4 py-2 bg-primary-100/70 border border-primary-300 rounded-full">
-            <span className="text-sm font-semibold text-primary-700">✨ Welcome to the future of learning</span>
+            <span className="text-sm font-semibold text-primary-700">{t('home.tagline')}</span>
           </div>
           
           <h1 className="text-6xl lg:text-7xl font-black text-surface-900 tracking-tight leading-tight mb-2">
-            Learning made
+            {t('home.title1')}
             <br />
-            <span className="bg-gradient-to-r from-secondary-600 via-primary-500 to-tertiary-500 bg-clip-text text-transparent">simple & beautiful.</span>
+            <span className="bg-gradient-to-r from-secondary-600 via-primary-500 to-tertiary-500 bg-clip-text text-transparent">{t('home.title2')}</span>
           </h1>
           
           <p className="mt-8 text-xl text-surface-600 leading-relaxed max-w-3xl font-medium">
-            A thoughtfully designed platform that adapts to <span className="text-primary-700 font-semibold">how you think</span>. Master new skills through interactive lessons, watch your growth come alive, and celebrate every milestone with visual progress that matters.
+            {t('home.subtitle')}
           </p>
           
           <div className="mt-12 flex flex-wrap gap-4">
@@ -52,7 +54,7 @@ function HomePage() {
               to="/signup"
               className="inline-flex items-center gap-3 px-8 py-4 text-base font-bold text-white bg-gradient-to-r from-tertiary-500 to-tertiary-600 rounded-2xl hover:from-tertiary-600 hover:to-tertiary-700 shadow-2xl hover:shadow-2xl hover:-translate-y-1 cursor-pointer transition-all duration-150 active:translate-y-0 group"
             >
-              Start learning free
+              {t('home.cta.start')}
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
               </svg>
@@ -62,7 +64,7 @@ function HomePage() {
                 <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                 <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Watch demo
+              {t('home.cta.demo')}
             </button>
           </div>
 
@@ -73,8 +75,8 @@ function HomePage() {
                 <span className="text-white font-bold text-sm">100</span>
               </div>
               <div>
-                <div className="font-semibold text-surface-900">Topics</div>
-                <div className="text-sm text-surface-600">Curated for growth</div>
+                <div className="font-semibold text-surface-900">{t('home.stats.topics')}</div>
+                <div className="text-sm text-surface-600">{t('home.stats.topicsSub')}</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -82,8 +84,8 @@ function HomePage() {
                 <span className="text-white font-bold text-sm">50K</span>
               </div>
               <div>
-                <div className="font-semibold text-surface-900">Learners</div>
-                <div className="text-sm text-surface-600">Already learning</div>
+                <div className="font-semibold text-surface-900">{t('home.stats.learners')}</div>
+                <div className="text-sm text-surface-600">{t('home.stats.learnersSub')}</div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -91,8 +93,8 @@ function HomePage() {
                 <span className="text-white font-bold text-sm">4.9</span>
               </div>
               <div>
-                <div className="font-semibold text-surface-900">Rating</div>
-                <div className="text-sm text-surface-600">From real users</div>
+                <div className="font-semibold text-surface-900">{t('home.stats.rating')}</div>
+                <div className="text-sm text-surface-600">{t('home.stats.ratingSub')}</div>
               </div>
             </div>
           </div>
@@ -104,10 +106,10 @@ function HomePage() {
         <div className="max-w-6xl mx-auto px-6 py-32">
           <div className="text-center max-w-2xl mx-auto mb-20">
             <h2 className="text-4xl lg:text-5xl font-black text-surface-900 mb-4">
-              Everything you need to <span className="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">learn powerfully</span>
+              {t('home.features.title')}
             </h2>
             <p className="text-lg text-surface-600 font-medium leading-relaxed">
-              Built with care for learners of all ages. Thoughtful design. Real results.
+              {t('home.features.subtitle')}
             </p>
           </div>
 
@@ -121,9 +123,9 @@ function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-surface-900 mb-3">Curated Topics</h3>
+                <h3 className="text-2xl font-bold text-surface-900 mb-3">{t('home.features.curated.title')}</h3>
                 <p className="text-surface-700 leading-relaxed font-medium">
-                  Over 100 carefully structured topics across science, math, art, and beyond. Each designed for progressive mastery.
+                  {t('home.features.curated.desc')}
                 </p>
               </div>
             </div>
@@ -137,9 +139,9 @@ function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-surface-900 mb-3">Interactive Learning</h3>
+                <h3 className="text-2xl font-bold text-surface-900 mb-3">{t('home.features.interactive.title')}</h3>
                 <p className="text-surface-700 leading-relaxed font-medium">
-                  Hands-on exercises, visual explanations, and real-world examples that make concepts click instantly.
+                  {t('home.features.interactive.desc')}
                 </p>
               </div>
             </div>
@@ -153,9 +155,9 @@ function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-surface-900 mb-3">Visible Progress</h3>
+                <h3 className="text-2xl font-bold text-surface-900 mb-3">{t('home.features.progress.title')}</h3>
                 <p className="text-surface-700 leading-relaxed font-medium">
-                  See exactly where you are. Celebrate wins, identify growth areas, and stay motivated every day.
+                  {t('home.features.progress.desc')}
                 </p>
               </div>
             </div>
@@ -169,16 +171,16 @@ function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/5 to-black/10"></div>
         <div className="relative max-w-6xl mx-auto px-6 py-24 text-center">
           <h2 className="text-4xl lg:text-5xl font-black text-white mb-6 leading-tight">
-            Ready to transform how you learn?
+            {t('home.cta2.title')}
           </h2>
           <p className="text-xl text-white/90 max-w-2xl mx-auto mb-10 font-medium">
-            Join thousands of learners who've discovered a smarter way to grow.
+            {t('home.cta2.subtitle')}
           </p>
           <Link
             to="/signup"
             className="inline-flex items-center gap-3 px-10 py-4 text-lg font-bold text-primary-700 bg-white rounded-2xl hover:bg-primary-50 shadow-2xl hover:shadow-2xl hover:-translate-y-1 cursor-pointer transition-all duration-150 active:translate-y-0 group"
           >
-            Start free today
+            {t('home.cta2.button')}
             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
@@ -189,9 +191,7 @@ function HomePage() {
       {/* Footer */}
       <footer className="bg-surface-900 text-white">
         <div className="max-w-6xl mx-auto px-6 py-12 text-center">
-          <p className="text-surface-400 font-medium">
-            Made with <span className="text-tertiary-400">💜</span> for learners everywhere
-          </p>
+          <p className="text-surface-400 font-medium">{t('home.footer')}</p>
         </div>
       </footer>
     </div>

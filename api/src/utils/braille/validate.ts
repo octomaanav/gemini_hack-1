@@ -21,23 +21,32 @@ export async function textToBraille(
       ? 'unicode.dis,en-us-mathtext.ctb'
       : 'unicode.dis,en-us-g2.ctb';
 
-    const { stdout, stderr } = await execPromise(
-      `lou_translate ${tableFile} < ${inputFile} > ${outputFile}`
-    );
+    // Run lou_translate and capture stdout directly to avoid temp file races
+    try {
+      const { stdout: brailleOut, stderr } = await execPromise(
+        `lou_translate ${tableFile} < ${inputFile}`
+      );
 
-    if (stderr) {
-      console.warn('Liblouis translation warning:', stderr);
+      if (stderr) {
+        console.warn('Liblouis translation warning:', stderr);
+      }
+
+      await unlink(inputFile).catch(() => {});
+
+      return {
+        braille: (brailleOut || '').trim(),
+        success: true,
+      };
+    } catch (e: any) {
+      // If lou_translate is not found or failed, surface a clearer message
+      console.error('Liblouis forward translation failed:', e?.message || e);
+      await unlink(inputFile).catch(() => {});
+      return {
+        braille: "",
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
-
-    const { stdout: braille } = await execPromise(`cat ${outputFile}`);
-
-    await unlink(inputFile).catch(() => {});
-    await unlink(outputFile).catch(() => {});
-
-    return {
-      braille: braille.trim(),
-      success: true,
-    };
   } catch (error) {
     console.error("Liblouis translation error:", error);
     return {

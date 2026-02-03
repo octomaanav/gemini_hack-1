@@ -32,18 +32,37 @@ export const useTextToSpeech = (options: UseTextToSpeechOptions = {}) => {
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         setAvailableVoices(voices);
-        
-        // Auto-select a good default voice (prefer English voices)
+
+        // Auto-select a good default voice
         if (!selectedVoice && voices.length > 0) {
-          const englishVoice = voices.find(
-            v => v.lang.startsWith('en') && v.localService
-          ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
-          setSelectedVoice(englishVoice);
+          // Priority 1: Google US English (often very high quality)
+          let bestVoice = voices.find(v => v.name === 'Google US English');
+
+          // Priority 2: Other Google voices (usually better quality)
+          if (!bestVoice) {
+            bestVoice = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en'));
+          }
+
+          // Priority 3: Premium or Enhanced voices
+          if (!bestVoice) {
+            bestVoice = voices.find(v =>
+              (v.name.includes('Premium') || v.name.includes('Enhanced')) &&
+              v.lang.startsWith('en')
+            );
+          }
+
+          // Priority 4: Any English voice
+          if (!bestVoice) {
+            bestVoice = voices.find(v => v.lang.startsWith('en'));
+          }
+
+          // Fallback
+          setSelectedVoice(bestVoice || voices[0]);
         }
       };
 
       loadVoices();
-      
+
       // Some browsers load voices asynchronously
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
@@ -64,7 +83,7 @@ export const useTextToSpeech = (options: UseTextToSpeechOptions = {}) => {
     utterance.rate = currentRate;
     utterance.pitch = pitch;
     utterance.volume = volume;
-    
+
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }

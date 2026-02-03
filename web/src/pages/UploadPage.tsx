@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { apiUrl } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import type { ChapterInfo } from '../types';
 import { storeFile } from '../utils/fileStorage';
@@ -52,7 +53,7 @@ function UploadPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/api/parse/chapters', {
+      const response = await fetch(apiUrl('/api/parse/chapters'), {
         method: 'POST',
         body: formData,
       });

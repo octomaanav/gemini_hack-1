@@ -7,7 +7,9 @@ import type {
   SubjectWithChapters
 } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+import { apiUrl } from '../utils/api';
+
+const API_BASE = apiUrl('/api');
 
 // =============================================================================
 // API FETCHING FUNCTIONS

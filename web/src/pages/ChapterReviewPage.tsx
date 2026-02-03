@@ -104,7 +104,7 @@ function ChapterReviewPage() {
         setParseProgress(prev => Math.min(prev + Math.random() * 10, 90));
       }, 1000);
 
-      const parseResponse = await fetch('http://localhost:8000/api/parse/full', {
+      const parseResponse = await fetch(apiUrl('/api/parse/full'), {
         method: 'POST',
         body: formData,
       });

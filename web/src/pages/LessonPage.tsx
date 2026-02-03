@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LessonViewer } from "../components/LessonViewer";
 import type { UnitLessons } from '../types';
@@ -38,7 +39,7 @@ export const LessonPage = () => {
         // Fetch subjects to find the chapter by slug
         // Note: classId in route might be a slug, so we need to resolve it
         // For now, try using it directly as ID, or we could look it up
-        const response = await fetch(`http://localhost:8000/api/curriculum/${user.profile.curriculumId}/grades/${classId}/subjects`);
+        const response = await fetch(apiUrl(`/api/curriculum/${user.profile.curriculumId}/grades/${classId}/subjects`));
         if (!response.ok) {
           throw new Error('Failed to fetch subjects');
         }
@@ -77,7 +78,7 @@ export const LessonPage = () => {
       setError(null);
 
       try {
-        const response = await fetch(`http://localhost:8000/api/lessons/chapter/${chapterId}`);
+        const response = await fetch(apiUrl(`/api/lessons/chapter/${chapterId}`));
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Failed to fetch lessons' }));

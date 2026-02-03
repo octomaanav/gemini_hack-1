@@ -313,7 +313,22 @@ const LessonViewerContent: React.FC<{ book: UnitLessons[]; autoStartNarration?: 
                     background: '#fff'
                   }}>
                     <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
-                      {video.url.includes('youtube.com') || video.url.includes('youtu.be') ? (
+                      {!video.url ? (
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: '#f1f5f9',
+                          color: '#64748b'
+                        }}>
+                          No video URL provided
+                        </div>
+                      ) : video.url.includes('youtube.com') || video.url.includes('youtu.be') ? (
                         <iframe
                           src={video.url.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
                           style={{ 
@@ -467,7 +482,3 @@ const LessonViewerContent: React.FC<{ book: UnitLessons[]; autoStartNarration?: 
 export const LessonViewer: React.FC<LessonViewerProps> = ({ book, autoStartNarration }) => {
   return <LessonViewerContent book={book} autoStartNarration={autoStartNarration} />;
 };
-
-// Example usage (hardcoded for now):
-// import { lessonBookData } from "../data/lessonBookData";
-// <LessonViewer book={lessonBookData} />

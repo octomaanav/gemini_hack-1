@@ -1,17 +1,21 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { 
-  curricula, 
-  classes, 
-  subjects, 
-  gradeSubjects, 
+import {
+  curricula,
+  classes,
+  subjects,
+  gradeSubjects,
   chapters,
   lessons
 } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { ParsedUnit, UnitLessons } from "../../types/index.js";
+import { isAdmin } from "../middleware/auth.js";
 
 const adminRouter = Router();
+
+// Protect all admin routes
+adminRouter.use(isAdmin);
 
 /**
  * POST /api/admin/subjects
@@ -25,7 +29,7 @@ adminRouter.post("/subjects", async (req, res) => {
       return res.status(400).json({ error: "slug and name are required" });
     }
 
-    // Check if subject exists
+    // Check if subject ex ists
     const [existingSubject] = await db
       .select()
       .from(subjects)
@@ -169,8 +173,8 @@ adminRouter.post("/bulk-import", async (req, res) => {
 
     if (!classId || !subjectSlug || !subjectName) {
       console.error("Missing required fields:", { classId: !!classId, subjectSlug: !!subjectSlug, subjectName: !!subjectName });
-      return res.status(400).json({ 
-        error: "classId, subjectSlug, and subjectName are required" 
+      return res.status(400).json({
+        error: "classId, subjectSlug, and subjectName are required"
       });
     }
 
@@ -193,7 +197,7 @@ adminRouter.post("/bulk-import", async (req, res) => {
 
     if (!classItem) {
       console.error(`Class not found with ID: ${classId}`);
-      
+
       // Get list of available classes for debugging
       const allClasses = await db
         .select({
@@ -203,17 +207,17 @@ adminRouter.post("/bulk-import", async (req, res) => {
         })
         .from(classes)
         .limit(10);
-      
+
       console.log(`Available classes in database:`, allClasses);
-      
+
       // Return 400 instead of 404 since the route exists, but the resource is invalid
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `Class not found with ID: ${classId}. Please ensure the class exists in the database.`,
         availableClasses: allClasses,
         hint: "The class may have been deleted or the database was reset. Please go back and select a class again."
       });
     }
-    
+
     console.log(`Found class: ${classItem.name} (${classItem.id})`);
 
     // 1. Create or get subject
@@ -340,19 +344,19 @@ adminRouter.post("/bulk-import", async (req, res) => {
         // 4. Create individual lesson records in the lessons table
         const lessonCount = chapterContent.lessons?.length || 0;
         let createdLessonsCount = 0;
-        
+
         if (lessonCount > 0 && chapterContent.lessons) {
           console.log(`  → Creating ${lessonCount} lesson records...`);
-          
+
           for (let j = 0; j < chapterContent.lessons.length; j++) {
             const lesson = chapterContent.lessons[j];
-            
+
             // Generate slug from sectionId and title
             const lessonSlug = `${lesson.sectionId}-${lesson.title}`
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-|-$/g, '');
-            
+
             try {
               // Check if lesson already exists
               const [existingLesson] = await db
@@ -363,7 +367,7 @@ adminRouter.post("/bulk-import", async (req, res) => {
                   eq(lessons.slug, lessonSlug)
                 ))
                 .limit(1);
-              
+
               if (existingLesson) {
                 // Update existing lesson
                 await db
@@ -393,10 +397,10 @@ adminRouter.post("/bulk-import", async (req, res) => {
               // Continue with other lessons even if one fails
             }
           }
-          
+
           console.log(`  ✓ Created ${createdLessonsCount} lesson records`);
         }
-        
+
         createdChapters.push({ chapter, lessonCount: createdLessonsCount });
         console.log(`  ✓ Chapter "${unit.unitTitle}" saved with ${createdLessonsCount} lessons in database`);
       } catch (dbError) {
@@ -419,7 +423,7 @@ adminRouter.post("/bulk-import", async (req, res) => {
       console.error("  Error message:", error.message);
       console.error("  Error stack:", error.stack);
     }
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to bulk import data",
       details: error instanceof Error ? error.message : String(error)
     });
@@ -528,8 +532,8 @@ adminRouter.post("/lessons", async (req, res) => {
     const { chapterId, slug, title, content, sortOrder } = req.body;
 
     if (!chapterId || !slug || !title || !content) {
-      return res.status(400).json({ 
-        error: "chapterId, slug, title, and content are required" 
+      return res.status(400).json({
+        error: "chapterId, slug, title, and content are required"
       });
     }
 
@@ -544,8 +548,8 @@ adminRouter.post("/lessons", async (req, res) => {
       .limit(1);
 
     if (existingLesson) {
-      return res.status(400).json({ 
-        error: "A lesson with this slug already exists in this chapter" 
+      return res.status(400).json({
+        error: "A lesson with this slug already exists in this chapter"
       });
     }
 
@@ -609,8 +613,8 @@ adminRouter.put("/lessons/:lessonId", async (req, res) => {
         .limit(1);
 
       if (conflictLesson && conflictLesson.id !== lessonId) {
-        return res.status(400).json({ 
-          error: "A lesson with this slug already exists in this chapter" 
+        return res.status(400).json({
+          error: "A lesson with this slug already exists in this chapter"
         });
       }
     }
@@ -688,14 +692,14 @@ adminRouter.post("/generate-image", async (req, res) => {
     const { prompt, numberOfImages = 1 } = req.body;
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return res.status(400).json({ 
-        error: "prompt is required and must be a non-empty string" 
+      return res.status(400).json({
+        error: "prompt is required and must be a non-empty string"
       });
     }
 
     if (numberOfImages < 1 || numberOfImages > 4) {
-      return res.status(400).json({ 
-        error: "numberOfImages must be between 1 and 4" 
+      return res.status(400).json({
+        error: "numberOfImages must be between 1 and 4"
       });
     }
 
@@ -713,8 +717,8 @@ adminRouter.post("/generate-image", async (req, res) => {
     });
   } catch (error) {
     console.error("Error generating image:", error);
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : "Failed to generate image" 
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to generate image"
     });
   }
 });

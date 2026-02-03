@@ -1,11 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+import { callGemini } from "../gemini";
 
 export async function normalizeLesson(input: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
     const prompt = `
 You are an educational content adapter for blind students. Your task is to rewrite educational content to be clear, accessible, and properly formatted for Braille conversion.
 
@@ -41,16 +37,12 @@ OUTPUT:
 Rewrite the content following the rules above. Return ONLY the rewritten content, no explanations.
 `;
 
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error("Gemini API timeout")), 30000)
-    );
-
-    const result = await Promise.race([
-      model.generateContent(prompt),
-      timeoutPromise
-    ]);
-
-    return result.response.text();
+    // Use the shared Gemini helper which respects DEFAULT_MODEL and retries
+    const text = await callGemini(prompt);
+    if (!text) {
+      throw new Error("Empty response from Gemini normalization");
+    }
+    return text;
   } catch (error) {
     console.error("Error normalizing lesson with Gemini, returning original:", error);
     return input;

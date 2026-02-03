@@ -1,61 +1,12 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { chapters, lessons as lessonsTable, classes, curricula, contentTranslations } from "../db/schema.js";
+import { chapters, lessons as lessonsTable, classes, curricula, gradeSubjects, subjects } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { Unit, UnitLessons, Book, StructuredChapter, StructuredCurriculum } from "../../types/index.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { isAuthenticated } from "../middleware/auth.js";
 
 const lessonsRouter = Router();
-
-const normalizeLocale = (locale?: string) => {
-  if (!locale) return "en-US";
-  const cleaned = locale.trim();
-  if (cleaned.toLowerCase().startsWith("es")) return "es-ES";
-  if (cleaned.toLowerCase().startsWith("hi")) return "hi-IN";
-  return "en-US";
-};
-
-const buildContentKey = (parts: Record<string, string>) => {
-  return Object.entries(parts)
-    .map(([key, value]) => `${key}:${value}`)
-    .join("|");
-};
-
-/**
- * Helper function to resolve classId (UUID or slug) to curriculum_class format for file lookup
- */
-async function resolveClassToFilePrefix(classIdOrSlug: string): Promise<string | null> {
-  // Check if it looks like a UUID
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classIdOrSlug);
-  
-  if (isUUID) {
-    // Look up class by UUID
-    const [classEntity] = await db
-      .select({
-        classSlug: classes.slug,
-        curriculumSlug: curricula.slug,
-      })
-      .from(classes)
-      .innerJoin(curricula, eq(curricula.id, classes.curriculumId))
-      .where(eq(classes.id, classIdOrSlug))
-      .limit(1);
-    
-    if (!classEntity) return null;
-    
-    // Convert class-11 to class11 for filename
-    const classSlugForFile = classEntity.classSlug.replace('-', '');
-    return `${classEntity.curriculumSlug}_${classSlugForFile}`;
-  }
-  
-  // Assume it's already in the correct format (e.g., cbse_class11)
-  return classIdOrSlug;
-}
 
 /**
  * Generate the lesson prompt for a given unit
@@ -266,12 +217,12 @@ const generateLessonForUnit = async (unit: Unit): Promise<UnitLessons | null> =>
   const prompt = getLessonPrompt(unit);
   const promptSize = new Blob([prompt]).size;
   console.log(`Prompt size for unit "${unit.unitTitle}": ${(promptSize / 1024).toFixed(2)} KB`);
-  
+
   // Warn if prompt is very large (Gemini has token limits)
   if (promptSize > 100 * 1024) { // 100KB
     console.warn(`⚠️  Large prompt detected (${(promptSize / 1024).toFixed(2)} KB). This may exceed token limits.`);
   }
-  
+
   return callGeminiJson<UnitLessons>(prompt);
 };
 
@@ -323,7 +274,7 @@ lessonsRouter.get("/chapter/:chapterId", async (req, res) => {
         // Try to extract sectionId pattern like "1.1" or "1-1" from the beginning of slug
         const slugParts = lesson.slug.split('-');
         let sectionId = lesson.slug;
-        
+
         // Try to find a sectionId pattern (e.g., "1.1", "1-1", "1_1")
         if (slugParts.length > 0) {
           const firstPart = slugParts[0];
@@ -332,7 +283,7 @@ lessonsRouter.get("/chapter/:chapterId", async (req, res) => {
             sectionId = firstPart.replace(/-/g, '.'); // Normalize to dot notation
           }
         }
-        
+
         return {
           sectionId,
           title: lesson.title,
@@ -344,21 +295,21 @@ lessonsRouter.get("/chapter/:chapterId", async (req, res) => {
     res.json([unitLessons]);
   } catch (error) {
     console.error("Error fetching lessons for chapter:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to fetch lessons",
       details: error instanceof Error ? error.message : String(error)
     });
   }
 });
 
-lessonsRouter.post("/generate", async (req, res) => {
+lessonsRouter.post("/generate", isAuthenticated, async (req, res) => {
   try {
     console.log("=== Lesson Generation Request Received ===");
-    
+
     if (!hasGeminiApiKey()) {
       console.error("Gemini API key not configured");
-      return res.status(500).json({ 
-        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable." 
+      return res.status(500).json({
+        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable."
       });
     }
 
@@ -366,8 +317,8 @@ lessonsRouter.post("/generate", async (req, res) => {
 
     if (!Array.isArray(book) || book.length === 0) {
       console.error("Invalid input: book is not an array or is empty", { bookType: typeof book, bookLength: Array.isArray(book) ? book.length : 'N/A' });
-      return res.status(400).json({ 
-        error: "Invalid input. Expected an array of units" 
+      return res.status(400).json({
+        error: "Invalid input. Expected an array of units"
       });
     }
 
@@ -377,13 +328,13 @@ lessonsRouter.post("/generate", async (req, res) => {
     for (let i = 0; i < book.length; i++) {
       const unit = book[i];
       if (!unit.unitTitle || !unit.sections || !Array.isArray(unit.sections)) {
-        console.error(`Invalid unit at index ${i}:`, { 
-          hasTitle: !!unit.unitTitle, 
-          hasSections: !!unit.sections, 
-          sectionsIsArray: Array.isArray(unit.sections) 
+        console.error(`Invalid unit at index ${i}:`, {
+          hasTitle: !!unit.unitTitle,
+          hasSections: !!unit.sections,
+          sectionsIsArray: Array.isArray(unit.sections)
         });
-        return res.status(400).json({ 
-          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.` 
+        return res.status(400).json({
+          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.`
         });
       }
       if (unit.sections.length === 0) {
@@ -393,49 +344,49 @@ lessonsRouter.post("/generate", async (req, res) => {
     }
 
     const unitLessons: UnitLessons[] = [];
-    
+
     for (let i = 0; i < book.length; i++) {
       const unit = book[i];
       console.log(`[${i + 1}/${book.length}] Generating lessons for unit: "${unit.unitTitle}" (${unit.sections.length} sections)...`);
-      
+
       try {
         const startTime = Date.now();
         const lessons = await generateLessonForUnit(unit);
         const duration = Date.now() - startTime;
-        
+
         if (!lessons) {
           console.error(`[${i + 1}/${book.length}] Failed to generate lessons for unit: "${unit.unitTitle}" - Gemini returned null`);
-          return res.status(500).json({ 
+          return res.status(500).json({
             error: `Failed to generate lessons for unit: "${unit.unitTitle}". The AI model may have returned invalid JSON or encountered an error. Check server logs for details.`,
             failedUnit: unit.unitTitle,
             completedUnits: unitLessons.length,
             totalUnits: book.length
           });
         }
-        
+
         // Validate the lessons structure
         if (!lessons.unitTitle || !Array.isArray(lessons.lessons)) {
           console.error(`[${i + 1}/${book.length}] Invalid lessons structure for unit: "${unit.unitTitle}"`, lessons);
-          return res.status(500).json({ 
+          return res.status(500).json({
             error: `Invalid lesson structure returned for unit: "${unit.unitTitle}". Expected unitTitle and lessons array.`,
             failedUnit: unit.unitTitle,
             completedUnits: unitLessons.length,
             totalUnits: book.length
           });
         }
-        
+
         console.log(`[${i + 1}/${book.length}] ✓ Successfully generated ${lessons.lessons.length} lessons for "${unit.unitTitle}" (took ${(duration / 1000).toFixed(1)}s)`);
         unitLessons.push(lessons);
       } catch (unitError) {
         console.error(`[${i + 1}/${book.length}] Error generating lessons for unit "${unit.unitTitle}":`, unitError);
-        
+
         // Log full error details
         if (unitError instanceof Error) {
           console.error(`  Error message: ${unitError.message}`);
           console.error(`  Error stack: ${unitError.stack}`);
         }
-        
-        return res.status(500).json({ 
+
+        return res.status(500).json({
           error: `Failed to generate lessons for unit: "${unit.unitTitle}". ${unitError instanceof Error ? unitError.message : 'Unknown error'}`,
           failedUnit: unit.unitTitle,
           completedUnits: unitLessons.length,
@@ -453,7 +404,7 @@ lessonsRouter.post("/generate", async (req, res) => {
       console.error("  Error message:", error.message);
       console.error("  Error stack:", error.stack);
     }
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to generate lessons",
       details: error instanceof Error ? error.message : String(error)
     });
@@ -632,11 +583,11 @@ const generateStructuredForUnit = async (unit: Unit): Promise<StructuredChapter 
   const prompt = getStructuredPrompt(unit);
   const promptSize = new Blob([prompt]).size;
   console.log(`Structured prompt size for unit "${unit.unitTitle}": ${(promptSize / 1024).toFixed(2)} KB`);
-  
+
   if (promptSize > 100 * 1024) {
     console.warn(`⚠️  Large prompt detected (${(promptSize / 1024).toFixed(2)} KB). This may exceed token limits.`);
   }
-  
+
   return callGeminiJson<StructuredChapter>(prompt);
 };
 
@@ -644,14 +595,14 @@ const generateStructuredForUnit = async (unit: Unit): Promise<StructuredChapter 
  * POST /api/lessons/generate-structured
  * Generate structured curriculum with microsections from a book (array of units)
  */
-lessonsRouter.post("/generate-structured", async (req, res) => {
+lessonsRouter.post("/generate-structured", isAuthenticated, async (req, res) => {
   try {
     console.log("=== Structured Curriculum Generation Request Received ===");
-    
+
     if (!hasGeminiApiKey()) {
       console.error("Gemini API key not configured");
-      return res.status(500).json({ 
-        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable." 
+      return res.status(500).json({
+        error: "Gemini API key is not configured. Please set GEMINI_API_KEY environment variable."
       });
     }
 
@@ -659,8 +610,8 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
 
     if (!Array.isArray(book) || book.length === 0) {
       console.error("Invalid input: book is not an array or is empty");
-      return res.status(400).json({ 
-        error: "Invalid input. Expected an array of units" 
+      return res.status(400).json({
+        error: "Invalid input. Expected an array of units"
       });
     }
 
@@ -670,8 +621,8 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
     for (let i = 0; i < book.length; i++) {
       const unit = book[i];
       if (!unit.unitTitle || !unit.sections || !Array.isArray(unit.sections)) {
-        return res.status(400).json({ 
-          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.` 
+        return res.status(400).json({
+          error: `Invalid unit format at index ${i}. Each unit must have unitTitle and sections array.`
         });
       }
       if (unit.sections.length === 0) {
@@ -680,42 +631,42 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
     }
 
     const structuredChapters: StructuredChapter[] = [];
-    
+
     for (let i = 0; i < book.length; i++) {
       const unit = book[i];
       console.log(`[${i + 1}/${book.length}] Generating structured curriculum for: "${unit.unitTitle}"...`);
-      
+
       try {
         const startTime = Date.now();
         const chapter = await generateStructuredForUnit(unit);
         const duration = Date.now() - startTime;
-        
+
         if (!chapter) {
           console.error(`[${i + 1}/${book.length}] Failed to generate for unit: "${unit.unitTitle}"`);
-          return res.status(500).json({ 
+          return res.status(500).json({
             error: `Failed to generate structured curriculum for unit: "${unit.unitTitle}"`,
             failedUnit: unit.unitTitle,
             completedUnits: structuredChapters.length,
             totalUnits: book.length
           });
         }
-        
+
         // Validate structure
         if (!chapter.chapterId || !chapter.chapterTitle || !Array.isArray(chapter.sections)) {
           console.error(`[${i + 1}/${book.length}] Invalid chapter structure for: "${unit.unitTitle}"`);
-          return res.status(500).json({ 
+          return res.status(500).json({
             error: `Invalid chapter structure returned for unit: "${unit.unitTitle}"`,
             failedUnit: unit.unitTitle,
             completedUnits: structuredChapters.length,
             totalUnits: book.length
           });
         }
-        
+
         console.log(`[${i + 1}/${book.length}] ✓ Generated ${chapter.sections.length} sections for "${unit.unitTitle}" (took ${(duration / 1000).toFixed(1)}s)`);
         structuredChapters.push(chapter);
       } catch (unitError) {
         console.error(`[${i + 1}/${book.length}] Error generating for unit "${unit.unitTitle}":`, unitError);
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: `Failed to generate structured curriculum for unit: "${unit.unitTitle}"`,
           failedUnit: unit.unitTitle,
           completedUnits: structuredChapters.length,
@@ -729,7 +680,7 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
     res.json(structuredChapters);
   } catch (error) {
     console.error("=== Fatal Error in Structured Curriculum Generation ===", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to generate structured curriculum",
       details: error instanceof Error ? error.message : String(error)
     });
@@ -747,74 +698,59 @@ lessonsRouter.post("/generate-structured", async (req, res) => {
 lessonsRouter.get("/structured/:classId/:subjectId", async (req, res) => {
   try {
     const { classId, subjectId } = req.params;
-    const locale = normalizeLocale(req.query.lang as string | undefined);
-    
-    // Resolve classId (UUID or slug) to file prefix
-    const filePrefix = await resolveClassToFilePrefix(classId);
-    if (!filePrefix) {
-      return res.status(404).json({ error: "Class not found" });
-    }
-    
-    // Load the structured curriculum JSON file
-    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
-    
-    if (!fs.existsSync(dataPath)) {
-      // Fallback to generic file
-      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
-      if (!fs.existsSync(fallbackPath)) {
-        return res.status(404).json({ error: "Structured curriculum data not found" });
-      }
-      const data: StructuredCurriculum = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
-      return res.json(data);
-    }
-    
-    const data: StructuredCurriculum = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    if (locale.startsWith("en")) {
-      return res.json(data);
-    }
 
-    if (!hasGeminiApiKey()) {
-      return res.status(500).json({ error: "Gemini API key is not configured." });
-    }
-
-    const contentKey = buildContentKey({ classId, subjectId });
-    const [cached] = await db
+    // Find all chapters for this class and subject
+    // 1. Find gradeSubjectId for classId and subjectId
+    const [gradeSubject] = await db
       .select()
-      .from(contentTranslations)
+      .from(gradeSubjects)
       .where(and(
-        eq(contentTranslations.contentKey, contentKey),
-        eq(contentTranslations.contentType, "structured_subject"),
-        eq(contentTranslations.locale, locale),
+        eq(gradeSubjects.classId, classId),
+        eq(gradeSubjects.subjectId, subjectId)
       ))
       .limit(1);
 
-    if (cached?.payload) {
-      return res.json(cached.payload);
+    if (!gradeSubject) {
+      return res.status(404).json({ error: "GradeSubject not found for class and subject" });
     }
 
-    const prompt = `Translate the following structured curriculum payload into ${locale}.
-Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings.
+    // 2. Find chapters for this gradeSubjectId
+    const chaptersList = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.gradeSubjectId, gradeSubject.id));
 
-Payload:
-${JSON.stringify(data)}
-`;
+    // 3. For each chapter, find sections (lessons)
+    const structuredChapters = await Promise.all(chaptersList.map(async (chapter) => {
+      const lessonsList = await db
+        .select()
+        .from(lessonsTable)
+        .where(eq(lessonsTable.chapterId, chapter.id));
 
-    const translated = await callGeminiJson(prompt);
+      // Each lesson is a section with microsections in content
+      return {
+        chapterId: chapter.slug,
+        chapterTitle: chapter.name,
+        chapterDescription: chapter.description,
+        sections: lessonsList.map(lesson => ({
+          id: lesson.slug,
+          slug: lesson.slug,
+          title: lesson.title,
+          description: (typeof lesson.content === 'object' && 'description' in lesson.content && typeof lesson.content.description === 'string')
+            ? lesson.content.description
+            : '',
+          sortOrder: lesson.sortOrder,
+          microsections: (typeof lesson.content === 'object' && 'microsections' in lesson.content && Array.isArray((lesson.content as any).microsections))
+            ? (lesson.content as any).microsections
+            : [],
+        }))
+      };
+    }));
 
-    await db
-      .insert(contentTranslations)
-      .values({
-        contentKey,
-        contentType: "structured_subject",
-        locale,
-        payload: translated,
-      })
-      .onConflictDoNothing();
-
-    return res.json(translated);
+    res.json(structuredChapters);
   } catch (error) {
     console.error("Error loading structured curriculum data:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to load structured curriculum data",
       details: error instanceof Error ? error.message : String(error)
     });
@@ -828,83 +764,74 @@ ${JSON.stringify(data)}
 lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug", async (req, res) => {
   try {
     const { classId, subjectId, chapterSlug } = req.params;
-    const locale = normalizeLocale(req.query.lang as string | undefined);
-    
-    // Resolve classId (UUID or slug) to file prefix
-    const filePrefix = await resolveClassToFilePrefix(classId);
-    if (!filePrefix) {
-      return res.status(404).json({ error: "Class not found" });
-    }
-    
-    // Load the structured curriculum JSON file
-    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
-    
-    let data: StructuredCurriculum;
-    
-    if (!fs.existsSync(dataPath)) {
-      // Fallback to generic file
-      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
-      if (!fs.existsSync(fallbackPath)) {
-        return res.status(404).json({ error: "Structured curriculum data not found" });
-      }
-      data = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
-    } else {
-      data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    }
-    
-    // Find the chapter by slug
-    const chapter = data.find(c => c.chapterId === chapterSlug);
-    
-    if (!chapter) {
-      return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
-    }
-    
-    if (locale.startsWith("en")) {
-      return res.json(chapter);
-    }
 
-    if (!hasGeminiApiKey()) {
-      return res.status(500).json({ error: "Gemini API key is not configured." });
-    }
-
-    const contentKey = buildContentKey({ classId, subjectId, chapterSlug });
-    const [cached] = await db
+    // Look up subject UUID from slug
+    const [subject] = await db
       .select()
-      .from(contentTranslations)
+      .from(subjects)
+      .where(eq(subjects.slug, subjectId))
+      .limit(1);
+
+    if (!subject) {
+      return res.status(404).json({ error: `Subject '${subjectId}' not found` });
+    }
+
+    // Find gradeSubjectId for classId and subjectId (UUID)
+    const [gradeSubject] = await db
+      .select()
+      .from(gradeSubjects)
       .where(and(
-        eq(contentTranslations.contentKey, contentKey),
-        eq(contentTranslations.contentType, "chapter"),
-        eq(contentTranslations.locale, locale),
+        eq(gradeSubjects.classId, classId),
+        eq(gradeSubjects.subjectId, subject.id)
       ))
       .limit(1);
 
-    if (cached?.payload) {
-      return res.json(cached.payload);
+    if (!gradeSubject) {
+      return res.status(404).json({ error: "GradeSubject not found for class and subject" });
     }
 
-    const prompt = `Translate the following chapter payload into ${locale}.
-Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings (titles, descriptions, prompts).
+    // Find chapter by slug
+    const [chapter] = await db
+      .select()
+      .from(chapters)
+      .where(and(
+        eq(chapters.gradeSubjectId, gradeSubject.id),
+        eq(chapters.slug, chapterSlug)
+      ))
+      .limit(1);
 
-Payload:
-${JSON.stringify(chapter)}
-`;
+    if (!chapter) {
+      return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
+    }
 
-    const translated = await callGeminiJson(prompt);
+    // Find lessons (sections) for this chapter
+    const lessonsList = await db
+      .select()
+      .from(lessonsTable)
+      .where(eq(lessonsTable.chapterId, chapter.id));
 
-    await db
-      .insert(contentTranslations)
-      .values({
-        contentKey,
-        contentType: "chapter",
-        locale,
-        payload: translated,
-      })
-      .onConflictDoNothing();
+    const structuredChapter = {
+      chapterId: chapter.slug,
+      chapterTitle: chapter.name,
+      chapterDescription: chapter.description,
+      sections: lessonsList.map(lesson => ({
+        id: lesson.slug,
+        slug: lesson.slug,
+        title: lesson.title,
+        description: (typeof lesson.content === 'object' && 'description' in lesson.content && typeof lesson.content.description === 'string')
+          ? lesson.content.description
+          : '',
+        sortOrder: lesson.sortOrder,
+        microsections: (typeof lesson.content === 'object' && 'microsections' in lesson.content && Array.isArray((lesson.content as any).microsections))
+          ? (lesson.content as any).microsections
+          : [],
+      }))
+    };
 
-    return res.json(translated);
+    res.json(structuredChapter);
   } catch (error) {
     console.error("Error loading structured chapter:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to load structured chapter",
       details: error instanceof Error ? error.message : String(error)
     });
@@ -918,122 +845,92 @@ ${JSON.stringify(chapter)}
 lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:microsectionId", async (req, res) => {
   try {
     const { classId, subjectId, chapterSlug, sectionSlug, microsectionId } = req.params;
-    const locale = normalizeLocale(req.query.lang as string | undefined);
-    
-    // Resolve classId (UUID or slug) to file prefix
-    const filePrefix = await resolveClassToFilePrefix(classId);
-    if (!filePrefix) {
-      return res.status(404).json({ error: "Class not found" });
+
+    // Look up subject UUID from slug
+    const [subject] = await db
+      .select()
+      .from(subjects)
+      .where(eq(subjects.slug, subjectId))
+      .limit(1);
+
+    if (!subject) {
+      return res.status(404).json({ error: `Subject '${subjectId}' not found` });
     }
-    
-    // Load the structured curriculum JSON file
-    const dataPath = path.join(__dirname, '../../data/lessons', `${filePrefix}_${subjectId}.json`);
-    
-    let data: StructuredCurriculum;
-    
-    if (!fs.existsSync(dataPath)) {
-      // Fallback to generic file
-      const fallbackPath = path.join(__dirname, '../../data/lessons', 'cbse_class11_physics.json');
-      if (!fs.existsSync(fallbackPath)) {
-        return res.status(404).json({ error: "Structured curriculum data not found" });
-      }
-      data = JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
-    } else {
-      data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+
+    // Find gradeSubjectId for classId and subjectId (UUID)
+    const [gradeSubject] = await db
+      .select()
+      .from(gradeSubjects)
+      .where(and(
+        eq(gradeSubjects.classId, classId),
+        eq(gradeSubjects.subjectId, subject.id)
+      ))
+      .limit(1);
+
+    if (!gradeSubject) {
+      return res.status(404).json({ error: "GradeSubject not found for class and subject" });
     }
-    
-    // Find the chapter
-    const chapter = data.find(c => c.chapterId === chapterSlug);
+
+    // Find chapter by slug
+    const [chapter] = await db
+      .select()
+      .from(chapters)
+      .where(and(
+        eq(chapters.gradeSubjectId, gradeSubject.id),
+        eq(chapters.slug, chapterSlug)
+      ))
+      .limit(1);
+
     if (!chapter) {
       return res.status(404).json({ error: `Chapter '${chapterSlug}' not found` });
     }
-    
-    // Find the section
-    const section = chapter.sections.find(s => s.slug === sectionSlug);
+
+    // Find lesson (section) by slug
+    const [section] = await db
+      .select()
+      .from(lessonsTable)
+      .where(and(
+        eq(lessonsTable.chapterId, chapter.id),
+        eq(lessonsTable.slug, sectionSlug)
+      ))
+      .limit(1);
+
     if (!section) {
       return res.status(404).json({ error: `Section '${sectionSlug}' not found` });
     }
-    
-    // Find the microsection
-    const microsection = section.microsections.find(m => m.id === microsectionId);
+
+    // Find microsection by id in section.content.microsections
+    const microsections = (typeof section.content === 'object' && 'microsections' in section.content && Array.isArray((section.content as any).microsections))
+      ? (section.content as any).microsections
+      : [];
+    const microsection = microsections.find((m: any) => m.id === microsectionId);
     if (!microsection) {
       return res.status(404).json({ error: `Microsection '${microsectionId}' not found` });
     }
-    
-    const responsePayload = {
+
+    res.json({
       chapter: {
-        chapterId: chapter.chapterId,
-        chapterTitle: chapter.chapterTitle,
+        chapterId: chapter.slug,
+        chapterTitle: chapter.name,
       },
       section: {
-        id: section.id,
+        id: section.slug,
         slug: section.slug,
         title: section.title,
       },
       microsection,
       navigation: {
-        sectionMicrosections: section.microsections.map(m => ({
+        sectionMicrosections: microsections.map((m: any) => ({
           id: m.id,
           type: m.type,
           title: m.title,
         })),
-        currentIndex: section.microsections.findIndex(m => m.id === microsectionId),
+        currentIndex: microsections.findIndex((m: any) => m.id === microsectionId),
       }
-    };
-
-    if (!locale.startsWith("en")) {
-      if (!hasGeminiApiKey()) {
-        return res.status(500).json({ error: "Gemini API key is not configured." });
-      }
-
-      const contentKey = buildContentKey({
-        classId,
-        subjectId,
-        chapterSlug,
-        sectionSlug,
-        microsectionId,
-      });
-
-      const [cached] = await db
-        .select()
-        .from(contentTranslations)
-        .where(and(
-          eq(contentTranslations.contentKey, contentKey),
-          eq(contentTranslations.contentType, "microsection"),
-          eq(contentTranslations.locale, locale),
-        ))
-        .limit(1);
-
-      if (cached?.payload) {
-        return res.json(cached.payload);
-      }
-
-      const prompt = `Translate the following lesson microsection payload into ${locale}. 
-Return ONLY valid JSON. Preserve all keys and structure. Only translate user-facing strings.
-
-Payload:
-${JSON.stringify(responsePayload)}
-`;
-
-      const translated = await callGeminiJson(prompt);
-
-      await db
-        .insert(contentTranslations)
-        .values({
-          contentKey,
-          contentType: "microsection",
-          locale,
-          payload: translated,
-        })
-        .onConflictDoNothing();
-
-      return res.json(translated);
-    }
-
-    res.json(responsePayload);
+    });
   } catch (error) {
     console.error("Error loading microsection:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to load microsection",
       details: error instanceof Error ? error.message : String(error)
     });

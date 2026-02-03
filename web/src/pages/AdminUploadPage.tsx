@@ -34,8 +34,8 @@ function AdminUploadPage() {
       
       try {
         const [curriculaRes, subjectsRes] = await Promise.all([
-          fetch('http://localhost:8000/api/curriculum'),
-          fetch('http://localhost:8000/api/admin/subjects')
+          fetch(apiUrl('/api/curriculum')),
+          fetch(apiUrl('/api/admin/subjects'))
         ]);
         
         if (!curriculaRes.ok) throw new Error('Failed to fetch curricula');
@@ -103,7 +103,7 @@ function AdminUploadPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/api/parse/chapters', {
+      const response = await fetch(apiUrl('/api/parse/chapters'), {
         method: 'POST',
         body: formData,
         // Prevent caching

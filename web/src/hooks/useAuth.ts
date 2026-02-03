@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { User, AuthData, UseAuthReturn } from '../types';
-import { syncAccessibilityFromProfile } from '../utils/accessibility';
+import { apiUrl } from '../utils/api';
 
 export const useAuth = (): UseAuthReturn => {
   const [user, setUser] = useState<User | null>(null);
@@ -10,17 +10,15 @@ export const useAuth = (): UseAuthReturn => {
   const fetchUser = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('http://localhost:8000/api/auth/me', {
+      const response = await fetch(apiUrl('/api/auth/me'), {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data: AuthData = await response.json();
-        const normalizedSubjects = Array.isArray(data.user.subjects) ? data.user.subjects : [];
-        syncAccessibilityFromProfile(data.user.profile?.accessibility);
-        setUser({ ...data.user, subjects: normalizedSubjects });
+        setUser(data.user);
       } else if (response.status === 401) {
         setUser(null);
       } else {

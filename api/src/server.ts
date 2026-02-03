@@ -14,6 +14,7 @@ import brailleRouter from "./routes/braille.js";
 import lessonsRouter from "./routes/lessons.js";
 import curriculumRouter from "./routes/curriculum.js";
 import adminRouter from "./routes/admin.js";
+import uploadRouter from "./routes/upload.js";
 import storyRouter from "./routes/story.js";
 import { storageConfig } from "./utils/storage.js";
 import { startWorkerLoop } from "./worker/index.js";
@@ -42,7 +43,7 @@ app.use((req, res, next) => {
 // CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
   })
 );
@@ -80,6 +81,7 @@ app.use("/api/braille", brailleRouter);
 app.use("/api/lessons", lessonsRouter);
 app.use("/api/curriculum", curriculumRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/upload", uploadRouter);
 app.use("/api/story", storyRouter);
 app.use("/api/content", contentRouter);
 app.use("/api/story_v2", storyV2Router);

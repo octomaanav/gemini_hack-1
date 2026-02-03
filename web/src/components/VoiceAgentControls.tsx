@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useVoiceAgent } from './VoiceAgentProvider';
 
 export const VoiceAgentControls: React.FC = () => {
@@ -10,129 +10,106 @@ export const VoiceAgentControls: React.FC = () => {
     toggleListening,
   } = useVoiceAgent();
 
+  const [visualizerHeight, setVisualizerHeight] = useState<number[]>([]);
+
+  // Simple waveform visualization effect
+  useEffect(() => {
+    if (isListening) {
+      const interval = setInterval(() => {
+        const newHeights = Array.from({ length: 5 }, () => Math.random() * 20 + 10);
+        setVisualizerHeight(newHeights);
+      }, 100);
+      return () => clearInterval(interval);
+    } else {
+      setVisualizerHeight([]);
+    }
+  }, [isListening]);
+
   if (!isSupported) {
     return null;
   }
 
   return (
     <>
-      {/* Floating Voice Toggle Button */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: 1000,
-        }}
-      >
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 pointer-events-none">
+
+        {/* Transcript Bubble */}
+        {isListening && transcript && (
+          <div className="bg-white/90 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl p-4 max-w-xs text-slate-700 text-sm font-medium animate-in slide-in-from-bottom-5 duration-300">
+            {transcript}
+          </div>
+        )}
+
+        {/* Error Bubble */}
+        {error && (
+          <div className="bg-red-50/90 backdrop-blur-md border border-red-200 shadow-xl rounded-2xl p-4 max-w-xs text-red-700 text-sm font-medium animate-in slide-in-from-bottom-5 duration-300 pointer-events-auto">
+            {error}
+          </div>
+        )}
+
+        {/* Main Agent Orb */}
         <button
           onClick={toggleListening}
-          aria-label={isListening ? "Stop Recording" : "Start Recording"}
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: isListening ? '#ef4444' : '#2563eb',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            transition: 'all 0.2s',
-            position: 'relative',
-          }}
-          title={isListening ? "Stop Recording" : "Start Recording"}
+          className={`pointer-events-auto relative group transition-all duration-300 ${isListening ? 'scale-110' : 'hover:scale-105'
+            }`}
+          aria-label={isListening ? "Stop Listening" : "Start Voice Agent"}
         >
-          {/* Listening indicator animation */}
-          {isListening && (
-            <div
-              style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                borderRadius: '50%',
-                border: '2px solid currentColor',
-                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              }}
-            />
-          )}
-          
-          {/* Microphone icon */}
-          <svg
-            width="28"
-            height="28"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            style={{
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-            {isListening ? (
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-            ) : (
-              <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
+          {/* Glowing Aura Effect */}
+          <div className={`absolute inset-0 rounded-full blur-xl transition-all duration-500 ${isListening
+              ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-60 animate-pulse'
+              : 'bg-blue-500/0'
+            }`} />
+
+          {/* Main Button Container */}
+          <div className={`relative h-16 w-16 rounded-full overflow-hidden shadow-2xl transition-all duration-300 border border-white/20 ${isListening
+              ? 'bg-slate-900'
+              : 'bg-gradient-to-br from-slate-800 to-slate-900'
+            }`}>
+
+            {/* Inner Content */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {isListening ? (
+                // Waveform Visualization
+                <div className="flex items-center justify-center gap-1 h-8">
+                  {visualizerHeight.map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-gradient-to-t from-blue-400 to-purple-400 rounded-full transition-all duration-100 ease-in-out"
+                      style={{ height: `${h}px` }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Passive Icon
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-400 to-purple-400 blur-lg opacity-40"></div>
+                  <svg
+                    className="w-8 h-8 text-white relative z-10 drop-shadow-lg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Siri-like Gradient Overlay */}
+            {isListening && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-purple-500/20 to-pink-500/20 animate-spin-slow pointer-events-none" />
             )}
-          </svg>
+          </div>
         </button>
       </div>
 
-      {/* Transcript Log (for debugging) */}
-      {transcript && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 100,
-            right: 24,
-            zIndex: 999,
-            background: 'white',
-            padding: '12px 16px',
-            borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            maxWidth: 300,
-            fontSize: 12,
-            color: '#374151',
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Transcript:</div>
-          <div>{transcript}</div>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 100,
-            right: 24,
-            zIndex: 999,
-            background: '#fee2e2',
-            padding: '12px 16px',
-            borderRadius: 8,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            maxWidth: 300,
-            fontSize: 12,
-            color: '#991b1b',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* CSS Animation */}
       <style>{`
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.5;
-            transform: scale(1.1);
-          }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
         }
       `}</style>
     </>

@@ -73,11 +73,16 @@ accountsRouter.get(
 
 accountsRouter.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "http://localhost:5173/login" }),
+  (req, res, next) => {
+    const failureRedirect = `${process.env.FRONTEND_URL || "http://localhost:5173"}/login`;
+    passport.authenticate("google", { failureRedirect })(req, res, next);
+  },
   async (req, res) => {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
     const user = req.user as User;
     if (!user) {
-      return res.redirect("http://localhost:5173/login");
+      return res.redirect(`${frontendUrl}/login`);
     }
 
     // Fetch the user from DB
@@ -85,16 +90,16 @@ accountsRouter.get(
 
     if (!userEntry) {
       // Safety check: should rarely happen
-      return res.redirect("http://localhost:5173/login");
+      return res.redirect(`${frontendUrl}/login`);
     }
 
     // Check if user needs to complete setup
     if (!userEntry.isProfileComplete) {
-      return res.redirect("http://localhost:5173/setup");
+      return res.redirect(`${frontendUrl}/setup`);
     }
 
     // User already has profile, redirect to dashboard
-    return res.redirect("http://localhost:5173/dashboard");
+    return res.redirect(`${frontendUrl}/dashboard`);
   }
 );
 
@@ -102,7 +107,8 @@ accountsRouter.get(
 accountsRouter.get("/me", async (req, res) => {
   const user = req.user as User;
   if (!user) {
-    return res.redirect("http://localhost:5173/login");
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    return res.redirect(`${frontendUrl}/login`);
   }
   const userEntry = await db.select().from(users).where(eq(users.email, user.email)).limit(1);
   res.json({ user: userEntry[0] })
@@ -157,7 +163,7 @@ accountsRouter.put("/me", async (req, res) => {
 
     // Update user chapters (delete old, insert new)
     await db.delete(userChapters).where(eq(userChapters.userId, existingUser.id));
-    
+
     if (profile.chapterIds.length > 0) {
       await db.insert(userChapters).values(
         profile.chapterIds.map((chapterId: string) => ({
@@ -168,10 +174,10 @@ accountsRouter.put("/me", async (req, res) => {
     }
 
     console.log('Updated user:', updatedUser);
-    
+
     // Update session with new user data
     req.user = updatedUser as any;
-    
+
     // Save session to ensure persistence
     req.session.save((err) => {
       if (err) {
@@ -212,7 +218,7 @@ accountsRouter.put("/preferences", async (req, res) => {
       ...(existingUser.profile || {}),
       ...(accessibility ? { accessibility } : {}),
       ...(language ? { language } : {}),
-    };
+    } as import("../../types/index.js").UserProfile;
 
     const [updatedUser] = await db
       .update(users)
@@ -224,7 +230,7 @@ accountsRouter.put("/preferences", async (req, res) => {
       .returning();
 
     req.user = updatedUser as any;
-    req.session.save(() => {});
+    req.session.save(() => { });
 
     return res.json({ user: updatedUser });
   } catch (error) {
@@ -242,6 +248,41 @@ accountsRouter.post("/logout", (req, res) => {
       res.json({ message: "Logged out successfully" });
     });
   });
+});
+
+/**
+ * GET /api/auth/admin-check
+ * Check if the current user is an admin
+ */
+accountsRouter.get("/admin-check", async (req, res) => {
+  if (!req.isAuthenticated() || !req.user) {
+    return res.json({ isAdmin: false });
+  }
+
+  const userEmail = (req.user as any)?.email;
+
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const adminFilePath = path.join(process.cwd(), "admins.json");
+
+    if (!fs.existsSync(adminFilePath)) {
+      return res.json({ isAdmin: false });
+    }
+
+    const fileContent = fs.readFileSync(adminFilePath, "utf-8");
+    const adminEmails: string[] = JSON.parse(fileContent);
+
+    if (!Array.isArray(adminEmails)) {
+      return res.json({ isAdmin: false });
+    }
+
+    const isAdmin = userEmail && adminEmails.map(e => e.trim().toLowerCase()).includes(userEmail.toLowerCase());
+    return res.json({ isAdmin: !!isAdmin });
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return res.json({ isAdmin: false });
+  }
 });
 
 export default accountsRouter;

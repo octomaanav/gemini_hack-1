@@ -139,7 +139,7 @@ function AdminChapterReviewPage() {
         setParseProgress(prev => Math.min(prev + Math.random() * 8, 85));
       }, 1500);
 
-      const parseResponse = await fetch('http://localhost:8000/api/parse/full', {
+      const parseResponse = await fetch(apiUrl('/api/parse/full'), {
         method: 'POST',
         body: formData,
       });
@@ -195,7 +195,7 @@ function AdminChapterReviewPage() {
 
       let response: Response;
       try {
-        response = await fetch('http://localhost:8000/api/lessons/generate', {
+        response = await fetch(apiUrl('/api/lessons/generate'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -307,7 +307,7 @@ function AdminChapterReviewPage() {
 
       let response: Response;
       try {
-        response = await fetch('http://localhost:8000/api/admin/bulk-import', {
+        response = await fetch(apiUrl('/api/admin/bulk-import'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

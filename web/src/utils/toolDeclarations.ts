@@ -31,6 +31,14 @@ export const toolDeclarations: FunctionDeclaration[] = [
         chapterNumber: {
           type: Type.NUMBER,
           description: "The chapter number starting from 1"
+        },
+        lessonNumber: {
+          type: Type.NUMBER,
+          description: "The lesson or section number within the chapter, starting from 1"
+        },
+        contentType: {
+          type: Type.STRING,
+          description: "The type of content to open: article, video, quiz, or practice"
         }
       },
       required: ["subject", "chapterNumber"]
@@ -69,6 +77,14 @@ export const toolDeclarations: FunctionDeclaration[] = [
           description: "Optional subject name to filter chapters by"
         }
       }
+    }
+  },
+  {
+    name: "convertBraille",
+    description: "Convert the current lesson or page content to Braille",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {}
     }
   },
   {

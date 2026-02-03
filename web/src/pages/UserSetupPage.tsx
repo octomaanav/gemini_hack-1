@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { 
@@ -185,7 +186,7 @@ export const UserSetupPage = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/me', {
+      const response = await fetch(apiUrl('/api/auth/me'), {
         method: 'PUT',
         credentials: 'include',
         headers: {

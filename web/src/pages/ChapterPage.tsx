@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import type { StructuredChapter, StructuredSection, Microsection, MicrosectionType, ArticleMicrosection } from '../types';
@@ -71,7 +72,7 @@ export function ChapterPage() {
       default: return t('micro.type.article');
     }
   };
-  
+
   useAuth(); // Ensure user is authenticated
   const [chapter, setChapter] = useState<StructuredChapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,19 +93,19 @@ export function ChapterPage() {
       try {
         // Fetch the structured curriculum JSON data
         const response = await fetch(
-          `http://localhost:8000/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}?lang=${language}`
+          apiUrl(`/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}?lang=${language}`)
         );
-        
+
         if (!response.ok) throw new Error('Failed to fetch chapter data');
-        
+
         const chapterData: StructuredChapter = await response.json();
         setChapter(chapterData);
-        
+
         // Auto-expand first section
         if (chapterData.sections.length > 0) {
           setExpandedSections(new Set([chapterData.sections[0].id]));
         }
-        
+
       } catch (err) {
         console.error('Error fetching chapter data:', err);
         setError(err instanceof Error ? err.message : t('chapter.error'));
@@ -208,7 +209,7 @@ export function ChapterPage() {
     );
   }
 
-  const sections = chapter.sections;
+  const sections = [...chapter.sections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -216,7 +217,7 @@ export function ChapterPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => navigate('/dashboard')}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               aria-label="Back to dashboard"
@@ -264,7 +265,7 @@ export function ChapterPage() {
         <div className="space-y-4">
           {sections.map((section, sectionIndex) => {
             const isExpanded = expandedSections.has(section.id);
-            
+
             return (
               <div key={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 {/* Section Header */}
@@ -287,10 +288,10 @@ export function ChapterPage() {
                     <span className="text-xs text-slate-400">
                       {section.microsections.length} items
                     </span>
-                    <svg 
+                    <svg
                       className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
+                      fill="none"
+                      stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -303,7 +304,7 @@ export function ChapterPage() {
                   <div className="border-t border-slate-100 p-4 space-y-2">
                     {section.microsections.map((microsection) => {
                       const typeColors = getMicrosectionColor(microsection.type);
-                      
+
                       return (
                         <button
                           key={microsection.id}

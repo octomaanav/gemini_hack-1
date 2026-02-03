@@ -87,7 +87,7 @@ export const VoiceAgentProvider: React.FC<VoiceAgentProviderProps> = ({
       systemInstruction: `You are a helpful voice assistant for an educational platform called LearnHub. 
 You help students navigate the platform, control lesson playback, and discover content.
 
-When the user makes a request that requires an action, output a JSON response with this format:
+When the user makes a request that requires an action, use the available tool/function calls. If you must respond in plain text, output a JSON response with this format:
 {
   "hasCommand": true,
   "command": {
@@ -103,6 +103,7 @@ Available commands:
 - Navigation: dashboard, home, setup, chapter, lesson
 - Lesson Control: play, pause, resume, stop, next, previous
 - Discovery: list_chapters, list_subjects, current_lesson, help
+- Accessibility: focus_mode, braille, story_mode
 
 Be friendly and helpful. Speak naturally and wait for the user to finish speaking before responding.`,
       realtimeInputConfig: {

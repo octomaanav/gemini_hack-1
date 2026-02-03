@@ -1,6 +1,7 @@
 import { db } from "./index.js";
-import { chapters, lessons as lessonsTable, gradeSubjects, subjects, classes, curricula } from "./schema.js";
+import { chapters, lessons as lessonsTable, gradeSubjects, subjects, classes, curricula, microsections, contentVersions } from "./schema.js";
 import { eq, and } from "drizzle-orm";
+import { sha256Json } from "../utils/hash.js";
 import { readdir, readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -80,8 +81,10 @@ export async function seedLessons() {
         const [foundClassWithCurriculum] = await db
           .select({
             classId: classes.id,
+            curriculumId: curricula.id,
             curriculumSlug: curricula.slug,
             className: classes.name,
+            classSlug: classes.slug,
           })
           .from(classes)
           .innerJoin(curricula, eq(curricula.id, classes.curriculumId))
@@ -129,6 +132,12 @@ export async function seedLessons() {
             })
             .returning();
         }
+
+        const curriculum = {
+          id: foundClassWithCurriculum.curriculumId,
+          slug: foundClassWithCurriculum.curriculumSlug,
+        };
+        const gradeValue = Number(foundClassWithCurriculum.classSlug.replace(/[^0-9]/g, "")) || 0;
 
         // Detect format and process accordingly
         if (isStructuredFormat(dataArray)) {
@@ -229,6 +238,51 @@ export async function seedLessons() {
                   });
               }
               processedSections++;
+
+              // Create microsections + content versions for deterministic engine
+              const microsectionsList = section.microsections || [];
+              for (let i = 0; i < microsectionsList.length; i++) {
+                const micro = microsectionsList[i];
+                const normalizedType = micro.type === "video" ? "story" : micro.type;
+                const contentKey = `curr:${curriculum.slug}:${curriculum.id}:grade${gradeValue}:${subject.slug}:ch${String(chapterIndex + 1).padStart(2, "0")}:ms${String(sectionIndex + 1).padStart(2, "0")}${String(i + 1).padStart(2, "0")}`;
+                await db
+                  .insert(microsections)
+                  .values({
+                    chapterId: chapter.id,
+                    type: normalizedType,
+                    title: micro.title,
+                    orderIndex: i + 1,
+                    contentKey,
+                  })
+                  .onConflictDoNothing();
+
+                const payload = {
+                  meta: {
+                    title: micro.title,
+                    type: normalizedType,
+                    grade: gradeValue,
+                    subject: subject.name,
+                    chapter: structuredChapter.chapterTitle,
+                    estimatedMinutes: micro.estimatedMinutes || 5,
+                  },
+                  learningObjectives: micro.learningObjectives || [],
+                  keyTerms: micro.keyTerms || [],
+                  content: micro.content || {},
+                  practice: micro.practice || micro.quiz || {},
+                };
+
+                const payloadHash = sha256Json(payload);
+                await db
+                  .insert(contentVersions)
+                  .values({
+                    contentKey,
+                    version: 1,
+                    canonicalLocale: "en",
+                    payloadJson: payload,
+                    payloadHash,
+                  })
+                  .onConflictDoNothing();
+              }
             }
           }
         } else if (isOldFormat(dataArray)) {
@@ -287,8 +341,8 @@ export async function seedLessons() {
             processedChapters++;
 
             // Process lessons within the unit
-            for (let j = 0; j < unitLessons.lessons.length; j++) {
-              const lesson = unitLessons.lessons[j];
+          for (let j = 0; j < unitLessons.lessons.length; j++) {
+            const lesson = unitLessons.lessons[j];
               
               const lessonSlug = `${lesson.sectionId}-${lesson.title}`
                 .toLowerCase()
@@ -326,6 +380,45 @@ export async function seedLessons() {
                   });
               }
               processedSections++;
+
+              const contentKey = `curr:${curriculum.slug}:${curriculum.id}:grade${gradeValue}:${subject.slug}:ch${String(unitIndex + 1).padStart(2, "0")}:ms${String(j + 1).padStart(3, "0")}`;
+              await db
+                .insert(microsections)
+                .values({
+                  chapterId: chapter.id,
+                  type: "article",
+                  title: lesson.title,
+                  orderIndex: j + 1,
+                  contentKey,
+                })
+                .onConflictDoNothing();
+
+              const payload = {
+                meta: {
+                  title: lesson.title,
+                  type: "article",
+                  grade: gradeValue,
+                  subject: subject.name,
+                  chapter: unitLessons.unitTitle,
+                  estimatedMinutes: 5,
+                },
+                learningObjectives: [],
+                keyTerms: [],
+                content: lesson.lessonContent || {},
+                practice: {},
+              };
+
+              const payloadHash = sha256Json(payload);
+              await db
+                .insert(contentVersions)
+                .values({
+                  contentKey,
+                  version: 1,
+                  canonicalLocale: "en",
+                  payloadJson: payload,
+                  payloadHash,
+                })
+                .onConflictDoNothing();
             }
           }
         } else {

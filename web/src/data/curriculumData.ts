@@ -18,8 +18,8 @@ const API_BASE = apiUrl('/api');
 /**
  * Fetch all curricula with their grades
  */
-export async function fetchCurricula(): Promise<CurriculumWithGrades[]> {
-  const response = await fetch(`${API_BASE}/curriculum`);
+export async function fetchCurricula(lang?: string): Promise<CurriculumWithGrades[]> {
+  const response = await fetch(`${API_BASE}/curriculum${lang ? `?lang=${lang}` : ''}`);
   if (!response.ok) {
     throw new Error('Failed to fetch curricula');
   }
@@ -29,8 +29,8 @@ export async function fetchCurricula(): Promise<CurriculumWithGrades[]> {
 /**
  * Fetch a single curriculum by ID
  */
-export async function fetchCurriculumById(id: string): Promise<CurriculumWithGrades | null> {
-  const response = await fetch(`${API_BASE}/curriculum/${id}`);
+export async function fetchCurriculumById(id: string, lang?: string): Promise<CurriculumWithGrades | null> {
+  const response = await fetch(`${API_BASE}/curriculum/${id}${lang ? `?lang=${lang}` : ''}`);
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error('Failed to fetch curriculum');
@@ -41,8 +41,8 @@ export async function fetchCurriculumById(id: string): Promise<CurriculumWithGra
 /**
  * Fetch a single curriculum by slug (cbse, icse, ib, state)
  */
-export async function fetchCurriculumBySlug(slug: string): Promise<CurriculumWithGrades | null> {
-  const response = await fetch(`${API_BASE}/curriculum/by-slug/${slug}`);
+export async function fetchCurriculumBySlug(slug: string, lang?: string): Promise<CurriculumWithGrades | null> {
+  const response = await fetch(`${API_BASE}/curriculum/by-slug/${slug}${lang ? `?lang=${lang}` : ''}`);
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error('Failed to fetch curriculum');
@@ -55,10 +55,11 @@ export async function fetchCurriculumBySlug(slug: string): Promise<CurriculumWit
  */
 export async function fetchSubjectsWithChapters(
   curriculumId: string, 
-  classId: string
+  classId: string,
+  lang?: string
 ): Promise<SubjectWithChapters[]> {
   const response = await fetch(
-    `${API_BASE}/curriculum/${curriculumId}/grades/${classId}/subjects`
+    `${API_BASE}/curriculum/${curriculumId}/grades/${classId}/subjects${lang ? `?lang=${lang}` : ''}`
   );
   if (!response.ok) {
     throw new Error('Failed to fetch subjects');

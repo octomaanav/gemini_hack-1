@@ -10,16 +10,15 @@ export const useAuth = (): UseAuthReturn => {
   const fetchUser = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(apiUrl('/api/auth/me'), {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data: AuthData = await response.json();
-        const normalizedSubjects = Array.isArray(data.user.subjects) ? data.user.subjects : [];
-        setUser({ ...data.user, subjects: normalizedSubjects });
+        setUser(data.user);
       } else if (response.status === 401) {
         setUser(null);
       } else {

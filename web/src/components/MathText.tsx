@@ -35,7 +35,7 @@ interface MathTextProps {
 }
 
 export const MathText: React.FC<MathTextProps> = ({ text, className }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,5 +55,5 @@ export const MathText: React.FC<MathTextProps> = ({ text, className }) => {
     };
   }, [text]);
 
-  return <div ref={ref} className={className} />;
+  return <span ref={ref} className={className} />;
 };

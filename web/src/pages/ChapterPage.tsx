@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { apiUrl } from '../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import type { StructuredChapter, StructuredSection, Microsection, MicrosectionType } from '../types';
+import type { StructuredChapter, StructuredSection, Microsection, MicrosectionType, ArticleMicrosection } from '../types';
+import { extractArticleRawText } from '../utils/textExtractor';
+import { useI18n } from '../components/i18n/useI18n';
+import { useLanguage } from '../components/i18n/LanguageProvider';
 
 // Icon components for different microsection types
 const ArticleIcon = () => (
@@ -40,16 +43,6 @@ const getMicrosectionIcon = (type: MicrosectionType) => {
   }
 };
 
-const getMicrosectionLabel = (type: MicrosectionType) => {
-  switch (type) {
-    case 'article': return 'Article';
-    case 'video': return 'Video';
-    case 'quiz': return 'Quiz';
-    case 'practice': return 'Practice';
-    default: return 'Lesson';
-  }
-};
-
 const getMicrosectionColor = (type: MicrosectionType) => {
   switch (type) {
     case 'article': return { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-600', hover: 'hover:bg-blue-100' };
@@ -67,12 +60,28 @@ export function ChapterPage() {
     subjectId: string;
     chapterSlug: string;
   }>();
-  
+  const { t } = useI18n();
+  const { language } = useLanguage();
+
+  const getMicrosectionLabel = (type: MicrosectionType) => {
+    switch (type) {
+      case 'article': return t('micro.type.article');
+      case 'video': return t('micro.type.story');
+      case 'quiz': return t('micro.type.quiz');
+      case 'practice': return t('micro.type.practice');
+      default: return t('micro.type.article');
+    }
+  };
+
   useAuth(); // Ensure user is authenticated
   const [chapter, setChapter] = useState<StructuredChapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [isBrailleOpen, setIsBrailleOpen] = useState(false);
+  const [isBrailleLoading, setIsBrailleLoading] = useState(false);
+  const [brailleError, setBrailleError] = useState<string | null>(null);
+  const [brailleResult, setBrailleResult] = useState<{ brf?: string; fullBraille?: string } | null>(null);
 
   useEffect(() => {
     const fetchChapterData = async () => {
@@ -84,29 +93,40 @@ export function ChapterPage() {
       try {
         // Fetch the structured curriculum JSON data
         const response = await fetch(
-          apiUrl(`/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}`)
+          apiUrl(`/api/lessons/structured/${classId}/${subjectId}/${chapterSlug}?lang=${language}`)
         );
-        
+
         if (!response.ok) throw new Error('Failed to fetch chapter data');
-        
+
         const chapterData: StructuredChapter = await response.json();
         setChapter(chapterData);
-        
+
         // Auto-expand first section
         if (chapterData.sections.length > 0) {
           setExpandedSections(new Set([chapterData.sections[0].id]));
         }
-        
+
       } catch (err) {
         console.error('Error fetching chapter data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load chapter');
+        setError(err instanceof Error ? err.message : t('chapter.error'));
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchChapterData();
-  }, [classId, subjectId, chapterSlug]);
+  }, [classId, subjectId, chapterSlug, language]);
+
+  useEffect(() => {
+    const handleBrailleOpen = () => {
+      openBrailleGuide();
+    };
+
+    window.addEventListener('braille-open', handleBrailleOpen as EventListener);
+    return () => {
+      window.removeEventListener('braille-open', handleBrailleOpen as EventListener);
+    };
+  }, [chapter]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -124,12 +144,50 @@ export function ChapterPage() {
     navigate(`/${classId}/${subjectId}/${chapterSlug}/${section.slug}/${microsection.id}`);
   };
 
+  const openBrailleGuide = async () => {
+    if (!chapter) return;
+    setIsBrailleOpen(true);
+    setIsBrailleLoading(true);
+    setBrailleError(null);
+
+    try {
+      const articleTexts = chapter.sections.flatMap((section) =>
+        section.microsections
+          .filter((micro) => micro.type === 'article')
+          .map((micro) => extractArticleRawText((micro as ArticleMicrosection).content))
+      );
+
+      const combinedText = articleTexts.join('\n\n');
+      if (!combinedText.trim()) {
+        throw new Error('No article content available for braille conversion.');
+      }
+
+      const response = await fetch('http://localhost:8000/api/braille/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson: combinedText })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate braille');
+      }
+
+      const brailleData = await response.json();
+      setBrailleResult({ brf: brailleData.brf, fullBraille: brailleData.fullBraille });
+    } catch (err) {
+      setBrailleError(err instanceof Error ? err.message : 'Failed to generate braille');
+    } finally {
+      setIsBrailleLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading chapter...</p>
+          <p className="text-slate-600">{t('chapter.loading')}</p>
         </div>
       </div>
     );
@@ -159,9 +217,10 @@ export function ChapterPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => navigate('/dashboard')}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Back to dashboard"
             >
               <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -178,7 +237,7 @@ export function ChapterPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-8 focus-mode-surface">
         {/* Chapter Description */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 mb-8 text-white">
           <h2 className="text-2xl font-bold mb-2">{chapter.chapterTitle}</h2>
@@ -191,13 +250,22 @@ export function ChapterPage() {
               {sections.reduce((sum, s) => sum + s.microsections.length, 0)} lessons
             </span>
           </div>
+          <div className="mt-4">
+            <button
+              onClick={openBrailleGuide}
+              className="px-4 py-2 rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 disabled:opacity-60"
+              disabled={isBrailleLoading}
+            >
+              {t('chapter.brailleGuide')}
+            </button>
+          </div>
         </div>
 
         {/* Sections List */}
         <div className="space-y-4">
           {sections.map((section, sectionIndex) => {
             const isExpanded = expandedSections.has(section.id);
-            
+
             return (
               <div key={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 {/* Section Header */}
@@ -220,10 +288,10 @@ export function ChapterPage() {
                     <span className="text-xs text-slate-400">
                       {section.microsections.length} items
                     </span>
-                    <svg 
+                    <svg
                       className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
+                      fill="none"
+                      stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -236,7 +304,7 @@ export function ChapterPage() {
                   <div className="border-t border-slate-100 p-4 space-y-2">
                     {section.microsections.map((microsection) => {
                       const typeColors = getMicrosectionColor(microsection.type);
-                      
+
                       return (
                         <button
                           key={microsection.id}
@@ -272,6 +340,47 @@ export function ChapterPage() {
           })}
         </div>
       </main>
+
+      {isBrailleOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
+          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">{t('chapter.brailleGuide')}</h3>
+              <button
+                onClick={() => setIsBrailleOpen(false)}
+                className="text-slate-500 hover:text-slate-700"
+                aria-label="Close braille guide"
+              >
+                X
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-auto">
+              {isBrailleLoading && (
+                <div className="text-slate-600">{t('chapter.generateBraille')}</div>
+              )}
+              {brailleError && (
+                <div className="text-red-600">{brailleError}</div>
+              )}
+              {brailleResult?.fullBraille && (
+                <div>
+                  <p className="text-sm text-slate-500 mb-2">Full Braille</p>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
+                    {brailleResult.fullBraille}
+                  </div>
+                </div>
+              )}
+              {brailleResult?.brf && (
+                <div>
+                  <p className="text-sm text-slate-500 mb-2">BRF (Ready for embossing)</p>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
+                    {brailleResult.brf}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

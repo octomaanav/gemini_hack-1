@@ -20,6 +20,7 @@ import { VoiceAgentProvider } from './components/VoiceAgentProvider';
 import { VoiceAgentControls } from './components/VoiceAgentControls';
 import { AccessibilityProvider } from './components/accessibility/AccessibilityProvider';
 import { GlobalControlsBar } from './components/GlobalControlsBar';
+import { ScreenOptionalOverlay } from './components/ScreenOptionalOverlay';
 import { LanguageProvider } from './components/i18n/LanguageProvider';
 
 function App() {
@@ -79,6 +80,7 @@ function App() {
             </main>
             <GlobalControlsBar />
             <VoiceAgentControls />
+            <ScreenOptionalOverlay />
           </VoiceAgentProvider>
         </LanguageProvider>
       </AccessibilityProvider>

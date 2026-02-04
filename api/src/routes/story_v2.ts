@@ -86,11 +86,18 @@ storyV2Router.get("/:contentKey", async (req, res) => {
     audioByIndex.set(a.slideIndex, a.audioPath || "");
   });
 
+  const keyTerms = Array.isArray((canonical as any).payloadJson?.keyTerms)
+    ? (canonical as any).payloadJson.keyTerms
+        .map((term: any) => (typeof term === "string" ? term : term?.term))
+        .filter((term: any) => typeof term === "string" && term.trim().length > 0)
+    : [];
+
   const enriched = slides.map((slide) => ({
     index: slide.slideIndex,
     caption: slide.caption,
     imageUrl: slide.imagePath,
     audioUrl: audioByIndex.get(slide.slideIndex) || null,
+    signKeywords: keyTerms,
   }));
 
   // Enqueue missing assets

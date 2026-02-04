@@ -8,6 +8,7 @@ interface AccessibilityContextValue extends AccessibilityPreferences {
   toggleReduceMotion: () => void;
   toggleCaptions: () => void;
   toggleSigns: () => void;
+  toggleScreenOptional: () => void;
   setFocusMode: (value: boolean) => void;
 }
 
@@ -21,6 +22,7 @@ const applySettingsToDocument = (settings: AccessibilityPreferences) => {
   root.dataset.textSize = settings.largeText ? 'large' : 'normal';
   root.dataset.reduceMotion = settings.reduceMotion ? 'true' : 'false';
   root.dataset.captions = settings.captionsOn ? 'true' : 'false';
+  root.dataset.screenOptional = settings.screenOptional ? 'true' : 'false';
 };
 
 export const AccessibilityProvider = ({ children }: { children: React.ReactNode }) => {
@@ -79,6 +81,8 @@ export const AccessibilityProvider = ({ children }: { children: React.ReactNode 
         setSettings((prev) => ({ ...prev, captionsOn: !prev.captionsOn })),
       toggleSigns: () =>
         setSettings((prev) => ({ ...prev, signsOn: !prev.signsOn })),
+      toggleScreenOptional: () =>
+        setSettings((prev) => ({ ...prev, screenOptional: !prev.screenOptional })),
       setFocusMode: (value: boolean) => setSettings((prev) => ({ ...prev, focusMode: value })),
     };
   }, [settings]);

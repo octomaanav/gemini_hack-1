@@ -145,6 +145,7 @@ export type TranslationKey =
   | 'controls.captions'
   | 'controls.signs'
   | 'controls.calmMotion'
+  | 'controls.screenOptional'
   | 'controls.language'
   | 'setup.preferences'
   | 'story.mode'
@@ -309,6 +310,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'controls.captions': 'Captions',
     'controls.signs': 'Signs',
     'controls.calmMotion': 'Calm Motion',
+    'controls.screenOptional': 'Screen Optional',
     'controls.language': 'Language',
     'setup.preferences': 'Preferences',
     'story.mode': 'Story Mode',
@@ -470,6 +472,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'controls.captions': 'Subtítulos',
     'controls.signs': 'Señas',
     'controls.calmMotion': 'Movimiento suave',
+    'controls.screenOptional': 'Modo sin pantalla',
     'controls.language': 'Idioma',
     'setup.preferences': 'Preferencias',
     'story.mode': 'Modo Historia',
@@ -631,6 +634,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'controls.captions': 'कैप्शन',
     'controls.signs': 'साइन',
     'controls.calmMotion': 'शांत मोशन',
+    'controls.screenOptional': 'स्क्रीन वैकल्पिक',
     'controls.language': 'भाषा',
     'setup.preferences': 'प्राथमिकताएँ',
     'story.mode': 'कहानी मोड',

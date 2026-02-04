@@ -29,7 +29,6 @@ const AccessibilityGuidePage = () => {
           <p className="text-slate-600 mb-4">{t('guide.voiceIntro')}</p>
           <ul className="space-y-2 text-sm text-slate-700">
             <li>{t('guide.voice.story')}</li>
-            <li>{t('guide.voice.braille')}</li>
             <li>{t('guide.voice.focus')}</li>
             <li>{t('guide.voice.play')}</li>
             <li>{t('guide.voice.dashboard')}</li>
@@ -41,7 +40,6 @@ const AccessibilityGuidePage = () => {
           <ul className="space-y-2 text-sm text-slate-700">
             <li>{t('guide.reading.largeText')}</li>
             <li>{t('guide.reading.story')}</li>
-            <li>{t('guide.reading.braille')}</li>
             <li>{t('guide.reading.keyboard')}</li>
           </ul>
         </section>

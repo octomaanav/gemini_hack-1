@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { chapters, lessons as lessonsTable, classes, curricula, contentTranslations } from "../db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { chapters, lessons as lessonsTable, classes, curricula, contentTranslations, contentVersions } from "../db/schema.js";
+import { eq, and, desc } from "drizzle-orm";
 import type { Unit, UnitLessons, Book, StructuredChapter, StructuredCurriculum } from "../../types/index.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 import fs from 'fs';
@@ -25,6 +25,36 @@ const buildContentKey = (parts: Record<string, string>) => {
   return Object.entries(parts)
     .map(([key, value]) => `${key}:${value}`)
     .join("|");
+};
+
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+const getCurriculumContext = async (classIdOrSlug: string) => {
+  if (isUuid(classIdOrSlug)) {
+    const [row] = await db
+      .select({
+        curriculumId: curricula.id,
+        curriculumSlug: curricula.slug,
+        classSlug: classes.slug,
+      })
+      .from(classes)
+      .innerJoin(curricula, eq(curricula.id, classes.curriculumId))
+      .where(eq(classes.id, classIdOrSlug))
+      .limit(1);
+    return row || null;
+  }
+
+  const [row] = await db
+    .select({
+      curriculumId: curricula.id,
+      curriculumSlug: curricula.slug,
+      classSlug: classes.slug,
+    })
+    .from(classes)
+    .innerJoin(curricula, eq(curricula.id, classes.curriculumId))
+    .where(eq(classes.slug, classIdOrSlug))
+    .limit(1);
+  return row || null;
 };
 
 /**
@@ -960,6 +990,32 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
       return res.status(404).json({ error: `Microsection '${microsectionId}' not found` });
     }
     
+    const chapterIndex = data.findIndex(c => c.chapterId === chapterSlug);
+    const sectionIndex = chapter.sections.findIndex(s => s.slug === sectionSlug);
+    const microIndex = section.microsections.findIndex(m => m.id === microsectionId);
+
+    const curriculumContext = await getCurriculumContext(classId);
+    const gradeValue = curriculumContext?.classSlug
+      ? Number(curriculumContext.classSlug.replace(/[^0-9]/g, "")) || 0
+      : 0;
+
+    const deterministicContentKey = curriculumContext
+      ? `curr:${curriculumContext.curriculumSlug}:${curriculumContext.curriculumId}:grade${gradeValue}:${subjectId}:ch${String(chapterIndex + 1).padStart(2, "0")}:ms${String(sectionIndex + 1).padStart(2, "0")}${String(microIndex + 1).padStart(2, "0")}`
+      : null;
+
+    let contentVersion = 1;
+    if (deterministicContentKey) {
+      const [latestVersion] = await db
+        .select()
+        .from(contentVersions)
+        .where(eq(contentVersions.contentKey, deterministicContentKey))
+        .orderBy(desc(contentVersions.version))
+        .limit(1);
+      if (latestVersion?.version) {
+        contentVersion = latestVersion.version;
+      }
+    }
+
     const responsePayload = {
       chapter: {
         chapterId: chapter.chapterId,
@@ -971,6 +1027,8 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
         title: section.title,
       },
       microsection,
+      contentKey: deterministicContentKey,
+      contentVersion,
       navigation: {
         sectionMicrosections: section.microsections.map(m => ({
           id: m.id,

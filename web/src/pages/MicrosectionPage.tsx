@@ -11,11 +11,12 @@ import type {
   PracticeMicrosection,
   ArticleContent,
   StoryAsset,
-  StoryAudioAsset
+  StoryAudioSlide
 } from '../types';
-import { extractArticleRawText } from '../utils/textExtractor';
 import { useLanguage } from '../components/i18n/LanguageProvider';
 import { useI18n } from '../components/i18n/useI18n';
+import { useAccessibility } from '../components/accessibility/AccessibilityProvider';
+import { useAccessibility } from '../components/accessibility/AccessibilityProvider';
 
 // Article Viewer Component
 const ArticleViewer: React.FC<{ content: ArticleContent; t: (key: any) => string }> = ({ content, t }) => {
@@ -109,11 +110,10 @@ const VideoViewer: React.FC<{
   story?: StoryAsset | null;
   onGenerateStory?: () => void;
   isStoryLoading?: boolean;
-  audioSlides?: StoryAudioAsset['slides'];
+  audioSlides?: StoryAudioSlide[];
   onRegenerateAudio?: () => void;
-  isAudioLoading?: boolean;
   t: (key: any) => string;
-}> = ({ content, story, onGenerateStory, isStoryLoading, audioSlides, onRegenerateAudio, isAudioLoading, t }) => {
+}> = ({ content, story, onGenerateStory, isStoryLoading, audioSlides, onRegenerateAudio, t }) => {
   const getEmbedUrl = (url: string) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtu.be') 
@@ -135,7 +135,7 @@ const VideoViewer: React.FC<{
         autoPlay={false}
         audioSlides={audioSlides}
         onRegenerateAudio={onRegenerateAudio}
-        isAudioLoading={isAudioLoading}
+        isAudioLoading={isStoryLoading}
       />
     );
   }
@@ -371,6 +371,8 @@ interface MicrosectionApiResponse {
     title: string;
   };
   microsection: Microsection;
+  contentKey?: string | null;
+  contentVersion?: number | null;
   navigation: {
     sectionMicrosections: {
       id: string;
@@ -398,14 +400,13 @@ export function MicrosectionPage() {
   const [story, setStory] = useState<StoryAsset | null>(null);
   const [isStoryLoading, setIsStoryLoading] = useState(false);
   const [storyError, setStoryError] = useState<string | null>(null);
-  const [storyAudio, setStoryAudio] = useState<StoryAudioAsset | null>(null);
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
-  const [brailleResult, setBrailleResult] = useState<{ brf?: string; fullBraille?: string } | null>(null);
-  const [brailleError, setBrailleError] = useState<string | null>(null);
-  const [isBrailleOpen, setIsBrailleOpen] = useState(false);
-  const [isBrailleLoading, setIsBrailleLoading] = useState(false);
+  const [storyAudioSlides, setStoryAudioSlides] = useState<StoryAudioSlide[] | null>(null);
+  const [isStoryQueued, setIsStoryQueued] = useState(false);
+  const [contentKey, setContentKey] = useState<string | null>(null);
+  const [contentVersion, setContentVersion] = useState<number | null>(null);
   const { language } = useLanguage();
   const { t } = useI18n();
+  const { signsOn } = useAccessibility();
 
   useEffect(() => {
     const fetchMicrosection = async () => {
@@ -426,6 +427,8 @@ export function MicrosectionPage() {
         
         const responseData: MicrosectionApiResponse = await response.json();
         setData(responseData);
+        setContentKey(responseData.contentKey || null);
+        setContentVersion(responseData.contentVersion ?? null);
       } catch (err) {
         console.error('Error fetching microsection:', err);
         setError(err instanceof Error ? err.message : 'Failed to load content');
@@ -440,129 +443,138 @@ export function MicrosectionPage() {
   useEffect(() => {
     setStory(null);
     setStoryError(null);
-    setStoryAudio(null);
+    setStoryAudioSlides(null);
+    setIsStoryQueued(false);
     preloadStory();
-  }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId]);
+  }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId, contentKey, contentVersion, language]);
 
-  const fetchStory = async () => {
-    if (!classId || !subjectId || !chapterSlug || !sectionSlug) return;
-    setIsStoryLoading(true);
-    setStoryError(null);
-    try {
-      const response = await fetch('http://localhost:8000/api/story/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          subjectId,
-          chapterSlug,
-          sectionSlug
-        })
+  const mapStoryV2ToAsset = (payload: any) => {
+    const slides = (payload.slides || []).map((slide: any) => {
+      const index = Number(slide.index);
+      return {
+        id: `slide-${index}`,
+        index,
+        title: `Slide ${index}`,
+        narration: slide.caption || '',
+        caption: slide.caption || '',
+        imagePrompt: '',
+        imageUrl: slide.imageUrl || undefined,
+        signKeywords: Array.isArray(slide.signKeywords) ? slide.signKeywords : undefined,
+      };
+    });
+
+    const audioSlides: StoryAudioSlide[] = (payload.slides || [])
+      .filter((slide: any) => slide.audioUrl)
+      .map((slide: any) => {
+        const index = Number(slide.index);
+        return {
+          slideId: `slide-${index}`,
+          narration: slide.caption || '',
+          caption: slide.caption || '',
+          audioUrl: slide.audioUrl,
+        };
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate story');
-      }
+    const storyAsset: StoryAsset = {
+      id: contentKey || 'story',
+      storyKey: contentKey || 'story',
+      classId: classId || '',
+      subjectId: subjectId || '',
+      chapterSlug: chapterSlug || '',
+      sectionSlug: sectionSlug || '',
+      microsectionId: microsectionId || null,
+      status: payload.status === 'ready' ? 'ready' : 'pending',
+      renderType: 'slides',
+      slides,
+    };
 
-      const storyData: StoryAsset = await response.json();
-      setStory(storyData);
-      setStoryAudio(null);
+    return { storyAsset, audioSlides, status: payload.status };
+  };
+
+  const signKeywords = useMemo(() => {
+    if (!data?.microsection) return [];
+    const stop = new Set(['the','and','for','with','that','this','from','into','your','you','are','was','were','have','has','had','about','than','then','them','they','their','there','what','when','where','which','how','why','a','an','of','to','in','on','at','as','by','or','be','is','it']);
+    const pool: string[] = [];
+    const addText = (text?: string) => {
+      if (!text) return;
+      const words = text
+        .toLowerCase()
+        .split(/[^a-z0-9]+/g)
+        .filter((w) => w.length > 3 && !stop.has(w));
+      pool.push(...words);
+    };
+
+    const micro = data.microsection as any;
+    addText(micro.title);
+    addText(data.section?.title);
+    if (micro.content?.introduction) addText(micro.content.introduction);
+    if (Array.isArray(micro.content?.coreConcepts)) {
+      micro.content.coreConcepts.forEach((c: any) => addText(c?.conceptTitle));
+    }
+    if (Array.isArray(micro.content?.summary)) {
+      micro.content.summary.forEach((s: any) => addText(String(s)));
+    }
+    if (micro.content?.description) addText(micro.content.description);
+
+    const unique: string[] = [];
+    for (const word of pool) {
+      if (!unique.includes(word)) unique.push(word);
+      if (unique.length >= 8) break;
+    }
+    return unique;
+  }, [data]);
+
+  const fetchStory = async () => {
+    if (!contentKey) return;
+    setIsStoryLoading(true);
+    setStoryError(null);
+    setIsStoryQueued(false);
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/story_v2/${encodeURIComponent(contentKey)}?version=${contentVersion || ''}&locale=${language}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to load story');
+      }
+      const storyData = await response.json();
+      const { storyAsset, audioSlides, status } = mapStoryV2ToAsset(storyData);
+      if (status === 'queued') {
+        setStory(null);
+        setStoryAudioSlides(null);
+        setIsStoryQueued(true);
+      } else {
+        setStory(storyAsset);
+        setStoryAudioSlides(audioSlides);
+      }
     } catch (err) {
-      setStoryError(err instanceof Error ? err.message : 'Failed to generate story');
+      setStoryError(err instanceof Error ? err.message : 'Failed to load story');
     } finally {
       setIsStoryLoading(false);
     }
   };
 
   const preloadStory = async () => {
-    if (!classId || !subjectId || !chapterSlug || !sectionSlug) return;
+    if (!contentKey) return;
     try {
       const response = await fetch(
-        `http://localhost:8000/api/story/${classId}/${subjectId}/${chapterSlug}/${sectionSlug}`
+        `http://localhost:8000/api/story_v2/${encodeURIComponent(contentKey)}?version=${contentVersion || ''}&locale=${language}`
       );
       if (!response.ok) {
+        setStory(null);
         return;
       }
-      const storyData: StoryAsset = await response.json();
-      if (storyData.status === 'ready') {
-        setStory(storyData);
+      const storyData = await response.json();
+      const { storyAsset, audioSlides, status } = mapStoryV2ToAsset(storyData);
+      if (status === 'ready') {
+        setStory(storyAsset);
+        setStoryAudioSlides(audioSlides);
+      } else {
+        setStory(null);
+        setStoryAudioSlides(null);
+        setIsStoryQueued(true);
       }
     } catch (err) {
       console.warn('Story preload failed', err);
-    }
-  };
-
-  const fetchStoryAudio = async (storyData?: StoryAsset, force = false) => {
-    const targetStory = storyData || story;
-    if (!targetStory) return;
-    setIsAudioLoading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/story/audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          subjectId,
-          chapterSlug,
-          sectionSlug,
-          locale: language,
-          force
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate audio');
-      }
-
-      const audioData: { audio: StoryAudioAsset } = await response.json();
-      setStoryAudio(audioData.audio);
-    } catch (err) {
-      setStoryError(err instanceof Error ? err.message : 'Failed to generate audio');
-    } finally {
-      setIsAudioLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (story && language) {
-      fetchStoryAudio(story);
-    }
-  }, [story, language]);
-
-  const openBraille = async () => {
-    if (!data || data.microsection.type !== 'article') {
-      setBrailleError('Braille is currently available for article lessons.');
-      setIsBrailleOpen(true);
-      return;
-    }
-
-    setIsBrailleLoading(true);
-    setBrailleError(null);
-    setIsBrailleOpen(true);
-
-    try {
-      const article = data.microsection as ArticleMicrosection;
-      const lessonText = extractArticleRawText(article.content);
-
-      const response = await fetch('http://localhost:8000/api/braille/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lesson: lessonText })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate braille');
-      }
-
-      const brailleData = await response.json();
-      setBrailleResult({ brf: brailleData.brf, fullBraille: brailleData.fullBraille });
-    } catch (err) {
-      setBrailleError(err instanceof Error ? err.message : 'Failed to generate braille');
-    } finally {
-      setIsBrailleLoading(false);
     }
   };
 
@@ -570,15 +582,10 @@ export function MicrosectionPage() {
     const handleStoryOpen = () => {
       fetchStory();
     };
-    const handleBrailleOpen = () => {
-      openBraille();
-    };
 
     window.addEventListener('story-open', handleStoryOpen as EventListener);
-    window.addEventListener('braille-open', handleBrailleOpen as EventListener);
     return () => {
       window.removeEventListener('story-open', handleStoryOpen as EventListener);
-      window.removeEventListener('braille-open', handleBrailleOpen as EventListener);
     };
   }, [data, classId, subjectId, chapterSlug, sectionSlug]);
 
@@ -690,33 +697,18 @@ export function MicrosectionPage() {
           <button
             onClick={fetchStory}
             className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 disabled:opacity-60"
-            disabled={isStoryLoading}
+            disabled={isStoryLoading || !contentKey}
           >
-            {isStoryLoading ? t('micro.generatingStory') : t('micro.storyMode')}
+            {isStoryLoading || isStoryQueued ? t('micro.generatingStory') : t('micro.storyMode')}
           </button>
-          {microsection.type === 'article' && !story && (
-            <button
-              onClick={openBraille}
-              className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-60"
-              disabled={isBrailleLoading}
-            >
-              {t('micro.brailleOutput')}
-            </button>
-          )}
           {storyError && (
             <span className="text-sm text-red-600">{storyError}</span>
           )}
         </div>
 
-        {isStoryLoading && (
+        {(isStoryLoading || isStoryQueued) && (
           <div className="mb-8 p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700">
             {t('micro.generatingStory')}
-          </div>
-        )}
-
-        {isAudioLoading && (
-          <div className="mb-8 p-4 rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
-            {t('micro.generatingAudio')}
           </div>
         )}
 
@@ -725,10 +717,54 @@ export function MicrosectionPage() {
             <StoryPlayer
               story={story}
               autoPlay={false}
-              audioSlides={storyAudio?.slides}
-              onRegenerateAudio={() => fetchStoryAudio(story, true)}
-              isAudioLoading={isAudioLoading}
+              audioSlides={storyAudioSlides || []}
+              onRegenerateAudio={fetchStory}
+              isAudioLoading={isStoryLoading}
             />
+          </div>
+        )}
+        {signsOn && signKeywords.length > 0 && (
+          <div className="mb-10 border border-slate-200 rounded-2xl p-4 bg-white">
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-3">{t('controls.signs')}</div>
+            <div className="flex flex-wrap gap-3">
+              {signKeywords.map((keyword) => {
+                const slug = keyword.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                const src = `/signs/${slug}.png`;
+                return (
+                  <div key={keyword} className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
+                    <img
+                      src={src}
+                      alt={`Sign for ${keyword}`}
+                      className="w-10 h-10 object-contain"
+                      onError={(event) => {
+                        const target = event.currentTarget;
+                        target.style.display = 'none';
+                      }}
+                    />
+                    <span className="text-sm text-slate-700">{keyword}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {!story && microsection.type !== 'video' && (
+          <div className="mb-10 border border-slate-200 rounded-2xl p-6 bg-white">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">{t('micro.storyMode')}</h3>
+                <p className="text-sm text-slate-600">
+                  {isStoryQueued ? t('micro.generatingStory') : t('micro.storyNotReady')}
+                </p>
+              </div>
+              <button
+                onClick={fetchStory}
+                className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100"
+                disabled={!contentKey}
+              >
+                {isStoryLoading ? t('micro.generatingStory') : t('micro.generateStory')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -741,9 +777,8 @@ export function MicrosectionPage() {
             story={story}
             onGenerateStory={fetchStory}
             isStoryLoading={isStoryLoading}
-            audioSlides={storyAudio?.slides}
-            onRegenerateAudio={() => fetchStoryAudio(story ?? undefined, true)}
-            isAudioLoading={isAudioLoading}
+            audioSlides={storyAudioSlides || []}
+            onRegenerateAudio={fetchStory}
             t={t}
           />
         )}
@@ -755,46 +790,7 @@ export function MicrosectionPage() {
         )}
       </main>
 
-      {isBrailleOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">{t('micro.brailleOutput')}</h3>
-              <button
-                onClick={() => setIsBrailleOpen(false)}
-                className="text-slate-500 hover:text-slate-700"
-                aria-label="Close braille output"
-              >
-                X
-              </button>
-            </div>
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-auto">
-              {isBrailleLoading && (
-                <div className="text-slate-600">{t('micro.generatingBraille')}</div>
-              )}
-              {brailleError && (
-                <div className="text-red-600">{brailleError}</div>
-              )}
-              {brailleResult?.fullBraille && (
-                <div>
-                  <p className="text-sm text-slate-500 mb-2">Full Braille</p>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
-                    {brailleResult.fullBraille}
-                  </div>
-                </div>
-              )}
-              {brailleResult?.brf && (
-                <div>
-                  <p className="text-sm text-slate-500 mb-2">BRF (Ready for embossing)</p>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
-                    {brailleResult.brf}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {null}
 
       {/* Navigation Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">

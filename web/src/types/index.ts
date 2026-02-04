@@ -8,6 +8,7 @@ export interface AccessibilityPreferences {
   reduceMotion?: boolean;
   captionsOn?: boolean;
   signsOn?: boolean;
+  screenOptional?: boolean;
 }
 
 export interface UserProfile {

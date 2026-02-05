@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { curricula, classes, subjects, gradeSubjects, chapters, contentTranslations } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
+import { sha256Json } from "../utils/hash.js";
 
 const curriculumRouter = Router();
 
@@ -26,13 +27,13 @@ const translatePayload = async (payload: unknown, locale: string, contentKey: st
     .from(contentTranslations)
     .where(and(
       eq(contentTranslations.contentKey, contentKey),
-      eq(contentTranslations.contentType, contentType),
+      eq(contentTranslations.version, 1),
       eq(contentTranslations.locale, locale),
     ))
     .limit(1);
 
-  if (cached?.payload) {
-    return cached.payload;
+  if (cached?.translatedPayloadJson) {
+    return cached.translatedPayloadJson;
   }
 
   if (!hasGeminiApiKey()) {
@@ -52,9 +53,11 @@ ${JSON.stringify(payload)}
     .insert(contentTranslations)
     .values({
       contentKey,
-      contentType,
+      version: 1, // Default version
       locale,
-      payload: translated,
+      translatedPayloadJson: translated as any,
+      translatedHash: sha256Json(translated),
+      model: "gemini",
     })
     .onConflictDoNothing();
 

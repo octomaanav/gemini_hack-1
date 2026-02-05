@@ -476,7 +476,7 @@ storyRouter.post("/audio", async (req, res) => {
       .update(storyAudioAssets)
       .set({
         status: "ready",
-        slides: audioSlides,
+        slides: audioSlides as any,
         updatedAt: new Date(),
       })
       .where(eq(storyAudioAssets.id, audioRecord.id))

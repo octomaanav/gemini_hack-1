@@ -1,4 +1,4 @@
-import { callGemini } from "../gemini";
+import { callGemini } from "../gemini.js";
 
 export async function normalizeLesson(input: string): Promise<string> {
   try {

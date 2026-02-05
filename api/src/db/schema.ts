@@ -10,14 +10,16 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
-  
+  password: text("password"),
+  salt: text("salt"),
+
   // Profile data stored as JSONB for flexibility
   profile: jsonb("profile").$type<UserProfile>(),
-  
+
   // Denormalized fields for quick access/filtering
   curriculumId: uuid("curriculum_id").references(() => curricula.id),
   classId: uuid("class_id").references(() => classes.id),
-  
+
   isProfileComplete: boolean("is_profile_complete").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -88,7 +90,7 @@ export const chapters = pgTable("chapters", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   sortOrder: integer("sort_order").notNull(),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueSlugPerGradeSubject: unique().on(table.gradeSubjectId, table.slug),
@@ -104,10 +106,10 @@ export const lessons = pgTable("lessons", {
   slug: text("slug").notNull(),
   title: text("title").notNull(),
   sortOrder: integer("sort_order").notNull(),
-  
+
   // Rich content stored as JSONB - can be legacy LessonContent or StructuredSection
   content: jsonb("content").$type<LessonContentUnion>().notNull(),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

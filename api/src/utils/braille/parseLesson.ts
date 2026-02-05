@@ -16,6 +16,7 @@ export interface MixedBrailleResult {
   englishOnly: string;
   mathOnly: string[];
   success: boolean;
+  brf?: string;
 }
 
 function isMathLine(line: string): boolean {
@@ -27,23 +28,23 @@ function isMathLine(line: string): boolean {
     /\b(sin|cos|tan|log|ln|sqrt|lim)\s*\(/,
     /=\s*\[/,
   ];
-  
+
   return mathIndicators.some(pattern => pattern.test(line));
 }
 
 export function parseLesson(lesson: string): ParsedSegment[] {
   const segments: ParsedSegment[] = [];
   let currentIndex = 0;
-  
+
   const patterns = [
     { regex: /\$\$([^\$]+)\$\$/g, type: "display" },
     { regex: /\\\[([^\]]+)\\\]/g, type: "display" },
     { regex: /\\\(([^\)]+)\\\)/g, type: "inline" },
     { regex: /\$([^\$]+)\$/g, type: "inline" },
   ];
-  
+
   const mathMatches: Array<{ start: number; end: number; content: string; original: string }> = [];
-  
+
   for (const pattern of patterns) {
     let match;
     pattern.regex.lastIndex = 0;
@@ -54,22 +55,22 @@ export function parseLesson(lesson: string): ParsedSegment[] {
         content: match[1].trim(),
         original: match[0],
       };
-      
+
       const hasOverlap = mathMatches.some(
-        existing => 
+        existing =>
           (newMatch.start >= existing.start && newMatch.start < existing.end) ||
           (newMatch.end > existing.start && newMatch.end <= existing.end) ||
           (newMatch.start <= existing.start && newMatch.end >= existing.end)
       );
-      
+
       if (!hasOverlap) {
         mathMatches.push(newMatch);
       }
     }
   }
-  
+
   mathMatches.sort((a, b) => a.start - b.start);
-  
+
   for (const mathMatch of mathMatches) {
     if (mathMatch.start > currentIndex) {
       const textContent = lesson.substring(currentIndex, mathMatch.start).trim();
@@ -81,16 +82,16 @@ export function parseLesson(lesson: string): ParsedSegment[] {
         });
       }
     }
-    
+
     segments.push({
       type: "math",
       content: mathMatch.content,
       original: mathMatch.original,
     });
-    
+
     currentIndex = mathMatch.end;
   }
-  
+
   if (currentIndex < lesson.length) {
     const textContent = lesson.substring(currentIndex).trim();
     if (textContent) {
@@ -101,7 +102,7 @@ export function parseLesson(lesson: string): ParsedSegment[] {
       });
     }
   }
-  
+
   if (segments.length === 0) {
     segments.push({
       type: "text",
@@ -109,14 +110,14 @@ export function parseLesson(lesson: string): ParsedSegment[] {
       original: lesson.trim(),
     });
   }
-  
+
   const processedSegments: ParsedSegment[] = [];
-  
+
   for (const segment of segments) {
     if (segment.type === "text") {
       const lines = segment.content.split('\n');
       let currentText = "";
-      
+
       for (const line of lines) {
         if (line.trim() && isMathLine(line)) {
           if (currentText.trim()) {
@@ -136,7 +137,7 @@ export function parseLesson(lesson: string): ParsedSegment[] {
           currentText += line + '\n';
         }
       }
-      
+
       if (currentText.trim()) {
         processedSegments.push({
           type: "text",
@@ -148,13 +149,13 @@ export function parseLesson(lesson: string): ParsedSegment[] {
       processedSegments.push(segment);
     }
   }
-  
+
   return processedSegments.length > 0 ? processedSegments : segments;
 }
 
 function cleanLatexForNemeth(latex: string): string {
   let cleaned = latex;
-  
+
   const replacements: Record<string, string> = {
     '\\times': '*',
     '\\cdot': '*',
@@ -179,27 +180,27 @@ function cleanLatexForNemeth(latex: string): string {
     '\\phi': 'phi',
     '^\\circ': ' degrees',
   };
-  
+
   for (const [latex, replacement] of Object.entries(replacements)) {
     const escapedLatex = latex.replace(/\\/g, '\\\\');
     cleaned = cleaned.replace(new RegExp(escapedLatex + '(?![a-zA-Z])', 'g'), replacement);
   }
-  
+
   cleaned = cleaned.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
   cleaned = cleaned.replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)');
   cleaned = cleaned.replace(/[{}]/g, '');
   cleaned = cleaned.replace(/\\/g, '');
-  
+
   return cleaned.trim();
 }
 
 export async function convertMixedLesson(lesson: string): Promise<MixedBrailleResult> {
   try {
     const segments = parseLesson(lesson);
-    const convertedSegments = [];
+    const convertedSegments: Array<{ type: "text" | "math"; original: string; braille: string }> = [];
     let englishOnly = "";
     const mathOnly: string[] = [];
-    
+
     const braillePromises = segments.map(async (segment) => {
       if (segment.type === "text") {
         const result = await textToBraille(segment.content, "en-us-g2");
@@ -221,9 +222,9 @@ export async function convertMixedLesson(lesson: string): Promise<MixedBrailleRe
         };
       }
     });
-    
+
     const processedSegments = await Promise.all(braillePromises);
-    
+
     let fullBraille = "";
     for (const segment of processedSegments) {
       convertedSegments.push({
@@ -231,7 +232,7 @@ export async function convertMixedLesson(lesson: string): Promise<MixedBrailleRe
         original: segment.original,
         braille: segment.braille,
       });
-      
+
       if (segment.type === "text") {
         fullBraille += segment.braille + "⠀";
         englishOnly += segment.cleanedContent + "\n";
@@ -240,7 +241,7 @@ export async function convertMixedLesson(lesson: string): Promise<MixedBrailleRe
         mathOnly.push(segment.original + " → " + segment.braille);
       }
     }
-    
+
     return {
       segments: convertedSegments,
       fullBraille: fullBraille.trim(),

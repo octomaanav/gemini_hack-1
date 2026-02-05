@@ -96,7 +96,8 @@ ${JSON.stringify(canonical.payloadJson)}
       })
       .onConflictDoNothing();
 
-    for (const slide of plan.slides || []) {
+    const slides = (plan as any)?.slides && Array.isArray((plan as any).slides) ? (plan as any).slides : [];
+    for (const slide of slides) {
       const promptHash = sha256Text(slide.imagePrompt || "");
       const captionHash = sha256Text(slide.caption || "");
       await db
@@ -128,15 +129,17 @@ ${JSON.stringify(canonical.payloadJson)}
       ))
       .limit(1);
     if (!slide || slide.imagePath) return;
-    const image = await generateImage(slide.prompt);
+    const images = await generateImage(slide.prompt);
+    if (!images || images.length === 0) return;
+    const imageData = images[0]; // This is a base64 string
     const key = `generated/${contentKey}/${version}/${locale}/story/slide_${slideIndex}.png`;
-    const saved = await saveBufferFile(Buffer.from(image.data, "base64"), key);
+    const saved = await saveBufferFile(Buffer.from(imageData, "base64"), key);
     await db
       .update(storySlides)
       .set({
         imagePath: saved.publicUrl,
-        imageMime: image.mimeType || "image/png",
-        imageHash: sha256Text(image.data),
+        imageMime: "image/png", // generateImage returns PNGs
+        imageHash: sha256Text(imageData),
         updatedAt: new Date(),
       })
       .where(eq(storySlides.id, slide.id));

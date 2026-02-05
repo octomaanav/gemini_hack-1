@@ -37,7 +37,7 @@ export async function seedLessons() {
     }
 
     const jsonFiles = files.filter(f => f.endsWith('.json') && !f.endsWith('.example.json'));
-    
+
     if (jsonFiles.length === 0) {
       return;
     }
@@ -67,7 +67,7 @@ export async function seedLessons() {
 
         const nameWithoutExt = filename.replace('.json', '');
         const parts = nameWithoutExt.split('_');
-        
+
         if (parts.length < 3) {
           console.error(`Invalid filename format in ${filename}: expected format is {curriculum}_{class}_{subject}.json`);
           errorCount++;
@@ -144,7 +144,7 @@ export async function seedLessons() {
           // NEW STRUCTURED FORMAT (StructuredChapter[])
           console.log(`Processing ${filename} as STRUCTURED format...`);
           const chaptersArray = dataArray;
-          
+
           for (let chapterIndex = 0; chapterIndex < chaptersArray.length; chapterIndex++) {
             const structuredChapter = chaptersArray[chapterIndex];
 
@@ -198,7 +198,7 @@ export async function seedLessons() {
             // Process sections within the chapter
             for (let sectionIndex = 0; sectionIndex < structuredChapter.sections.length; sectionIndex++) {
               const section = structuredChapter.sections[sectionIndex];
-              
+
               const lessonSlug = section.slug || `${section.id}-${section.title}`
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, '-')
@@ -221,7 +221,7 @@ export async function seedLessons() {
                   .update(lessonsTable)
                   .set({
                     title: section.title,
-                    content: sectionContent,
+                    content: sectionContent as any,
                     sortOrder: section.sortOrder || sectionIndex + 1,
                     updatedAt: new Date(),
                   })
@@ -234,7 +234,7 @@ export async function seedLessons() {
                     slug: lessonSlug,
                     title: section.title,
                     sortOrder: section.sortOrder || sectionIndex + 1,
-                    content: sectionContent,
+                    content: sectionContent as any,
                   });
               }
               processedSections++;
@@ -265,10 +265,10 @@ export async function seedLessons() {
                     chapter: structuredChapter.chapterTitle,
                     estimatedMinutes: micro.estimatedMinutes || 5,
                   },
-                  learningObjectives: micro.learningObjectives || [],
-                  keyTerms: micro.keyTerms || [],
-                  content: micro.content || {},
-                  practice: micro.practice || micro.quiz || {},
+                  learningObjectives: (micro as any).learningObjectives || [],
+                  keyTerms: (micro as any).keyTerms || [],
+                  content: (micro as any).content || {},
+                  practice: (micro as any).practice || (micro as any).quiz || {},
                 };
 
                 const payloadHash = sha256Json(payload);
@@ -289,7 +289,7 @@ export async function seedLessons() {
           // OLD FORMAT (UnitLessons[])
           console.log(`Processing ${filename} as OLD format...`);
           const unitsArray = dataArray;
-          
+
           for (let unitIndex = 0; unitIndex < unitsArray.length; unitIndex++) {
             const unitLessons = unitsArray[unitIndex];
 
@@ -341,9 +341,9 @@ export async function seedLessons() {
             processedChapters++;
 
             // Process lessons within the unit
-          for (let j = 0; j < unitLessons.lessons.length; j++) {
-            const lesson = unitLessons.lessons[j];
-              
+            for (let j = 0; j < unitLessons.lessons.length; j++) {
+              const lesson = unitLessons.lessons[j];
+
               const lessonSlug = `${lesson.sectionId}-${lesson.title}`
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, '-')
@@ -363,7 +363,7 @@ export async function seedLessons() {
                   .update(lessonsTable)
                   .set({
                     title: lesson.title,
-                    content: lesson.lessonContent,
+                    content: lesson.lessonContent as any,
                     sortOrder: j + 1,
                     updatedAt: new Date(),
                   })
@@ -376,7 +376,7 @@ export async function seedLessons() {
                     slug: lessonSlug,
                     title: lesson.title,
                     sortOrder: j + 1,
-                    content: lesson.lessonContent,
+                    content: lesson.lessonContent as any,
                   });
               }
               processedSections++;

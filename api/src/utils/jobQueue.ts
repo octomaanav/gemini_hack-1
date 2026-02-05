@@ -80,7 +80,7 @@ export const claimJob = async (jobType?: string): Promise<JobRecord | null> => {
     .where(eq(generationJobs.id, job.id))
     .returning();
 
-  return updated || job;
+  return (updated || job) as unknown as JobRecord;
 };
 
 export const markJobSucceeded = async (id: string) => {

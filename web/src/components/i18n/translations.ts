@@ -43,6 +43,7 @@ export type TranslationKey =
   | 'auth.terms'
   | 'auth.privacy'
   | 'auth.bySigningIn'
+  | 'auth.startJourney'
   | 'auth.signUpTitle'
   | 'auth.signUpSubtitle'
   | 'auth.fullName'
@@ -207,6 +208,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'auth.bySigningIn': 'By signing in, you agree to our',
     'auth.terms': 'Terms',
     'auth.privacy': 'Privacy',
+    'auth.startJourney': 'Start your learning journey',
     'auth.signUpTitle': 'Create your account',
     'auth.signUpSubtitle': 'Start learning in minutes.',
     'auth.fullName': 'Full name',
@@ -368,6 +370,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'auth.bySigningIn': 'Al iniciar sesión, aceptas nuestros',
     'auth.terms': 'Términos',
     'auth.privacy': 'Privacidad',
+    'auth.startJourney': 'Comienza tu viaje de aprendizaje',
     'auth.signUpTitle': 'Crea tu cuenta',
     'auth.signUpSubtitle': 'Empieza a aprender en minutos.',
     'auth.fullName': 'Nombre completo',
@@ -529,6 +532,7 @@ export const translations: Record<'en' | 'es' | 'hi', Translations> = {
     'auth.bySigningIn': 'साइन इन करके आप हमारे',
     'auth.terms': 'नियम',
     'auth.privacy': 'गोपनीयता',
+    'auth.startJourney': 'अपनी सीखने की यात्रा शुरू करें',
     'auth.signUpTitle': 'अपना खाता बनाएं',
     'auth.signUpSubtitle': 'मिनटों में सीखना शुरू करें।',
     'auth.fullName': 'पूरा नाम',

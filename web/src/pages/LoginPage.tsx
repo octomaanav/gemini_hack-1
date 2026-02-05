@@ -2,17 +2,52 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiUrl } from '../utils/api';
 import { useI18n } from '../components/i18n/useI18n';
+import { useAuth } from '../hooks/useAuth';
 
 function LoginPage() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { refetch } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    console.log('Login:', { email, password });
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Refresh auth state and redirect
+      await refetch();
+
+      // If user has profile (unlikely for new user), go to dashboard, else setup
+      if (data.user.isProfileComplete) {
+        navigate('/dashboard');
+      } else {
+        navigate('/setup');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -86,6 +121,11 @@ function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5 mb-8">
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm font-medium">
+                {error}
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-surface-900 mb-2">
                 {t('auth.email')}
@@ -125,9 +165,10 @@ function LoginPage() {
 
             <button
               type="submit"
-              className="w-full px-5 py-3.5 bg-gradient-to-r from-secondary-600 to-secondary-700 text-white font-bold rounded-xl hover:from-secondary-700 hover:to-secondary-800 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base"
+              disabled={isLoading}
+              className="w-full px-5 py-3.5 bg-gradient-to-r from-secondary-600 to-secondary-700 text-white font-bold rounded-xl hover:from-secondary-700 hover:to-secondary-800 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 cursor-pointer transition-all duration-150 active:translate-y-0 text-base disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {t('auth.signIn')}
+              {isLoading ? 'Signing in...' : t('auth.signIn')}
             </button>
           </form>
 

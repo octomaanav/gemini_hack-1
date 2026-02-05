@@ -43,7 +43,6 @@ export function useGeminiLive(): UseLiveAPIResults {
   const [model, setModel] = useState<string>("gemini-2.5-flash-native-audio-preview-12-2025");
   const [config, setConfig] = useState<LiveConnectConfig>({});
   const [connected, setConnected] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(false);
   const [volume, setVolume] = useState(0);
 
   useEffect(() => {
@@ -66,15 +65,13 @@ export function useGeminiLive(): UseLiveAPIResults {
       setConnected(true);
     };
 
-    const onClose = (event: CloseEvent) => {
+    const onClose = () => {
       setConnected(false);
-      setSetupComplete(false);
     };
 
     const onError = (error: ErrorEvent) => {
       console.error("[Gemini Live Hook] Error:", error);
       setConnected(false);
-      setSetupComplete(false);
     };
 
     const stopAudioStreamer = () => {
@@ -85,17 +82,12 @@ export function useGeminiLive(): UseLiveAPIResults {
       audioStreamerRef.current?.addPCM16(new Uint8Array(data));
     };
 
-    const onSetupComplete = () => {
-      setSetupComplete(true);
-    };
-
     client
       .on("error", onError)
       .on("open", onOpen)
       .on("close", onClose)
       .on("interrupted", stopAudioStreamer)
-      .on("audio", onAudio)
-      .on("setupcomplete", onSetupComplete);
+      .on("audio", onAudio);
 
     return () => {
       client
@@ -103,8 +95,7 @@ export function useGeminiLive(): UseLiveAPIResults {
         .off("open", onOpen)
         .off("close", onClose)
         .off("interrupted", stopAudioStreamer)
-        .off("audio", onAudio)
-        .off("setupcomplete", onSetupComplete);
+        .off("audio", onAudio);
       // Don't disconnect here - let the component handle it
     };
   }, [client]);

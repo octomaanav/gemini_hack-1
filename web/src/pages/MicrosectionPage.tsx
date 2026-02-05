@@ -5,7 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import { MathText } from '../components/MathText';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
-import { StoryPlayer } from '../components/StoryPlayer';
+import { BrailleArtifactsPanel } from '../components/BrailleArtifactsPanel';
+import { StoryCompilerPanel } from '../components/StoryCompilerPanel';
 import type {
   Microsection,
   ArticleMicrosection,
@@ -13,8 +14,6 @@ import type {
   QuizMicrosection,
   PracticeMicrosection,
   ArticleContent,
-  StoryAsset,
-  StoryAudioAsset
 } from '../types';
 
 // Helper to format text: bold **text** and convert newlines to <br/>
@@ -62,7 +61,6 @@ function getAllContentText(microsection: Microsection): string {
 
   return text;
 }
-import { extractArticleRawText } from '../utils/textExtractor';
 import { useLanguage } from '../components/i18n/LanguageProvider';
 import { useI18n } from '../components/i18n/useI18n';
 
@@ -155,14 +153,8 @@ const ArticleViewer: React.FC<{ content: ArticleContent; t: (key: any) => string
 // Video Viewer Component
 const VideoViewer: React.FC<{
   content: VideoMicrosection['content'];
-  story?: StoryAsset | null;
-  onGenerateStory?: () => void;
-  isStoryLoading?: boolean;
-  audioSlides?: StoryAudioAsset['slides'];
-  onRegenerateAudio?: () => void;
-  isAudioLoading?: boolean;
   t: (key: any) => string;
-}> = ({ content, story, onGenerateStory, isStoryLoading, audioSlides, onRegenerateAudio, isAudioLoading, t }) => {
+}> = ({ content, t }) => {
   const getEmbedUrl = (url: string) => {
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtu.be')
@@ -177,18 +169,6 @@ const VideoViewer: React.FC<{
     return url;
   };
   console.log('Video content:', content);
-
-  if (!content.url && story?.status === 'ready') {
-    return (
-      <StoryPlayer
-        story={story}
-        autoPlay={false}
-        audioSlides={audioSlides}
-        onRegenerateAudio={onRegenerateAudio}
-        isAudioLoading={isAudioLoading}
-      />
-    );
-  }
 
   return (
     <div>
@@ -210,14 +190,7 @@ const VideoViewer: React.FC<{
               </svg>
               <p>{t('micro.videoNotAvailable')}</p>
             </div>
-            {onGenerateStory && (
-              <button
-                onClick={onGenerateStory}
-                className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100"
-              >
-                {isStoryLoading ? t('micro.generatingStory') : t('micro.generateStory')}
-              </button>
-            )}
+            <p className="text-xs text-slate-500 mt-2">Tip: use Story Compiler below to generate a story version.</p>
           </div>
         )}
       </div>
@@ -418,6 +391,12 @@ interface MicrosectionApiResponse {
     title: string;
   };
   microsection: Microsection;
+  artifactScopes?: {
+    lessonScopeId: string;
+    chapterScopeId: string;
+    microsectionContentKey: string | null;
+    microsectionContentVersion: number | null;
+  };
   navigation: {
     sectionMicrosections: {
       id: string;
@@ -445,20 +424,11 @@ export function MicrosectionPage() {
 
   // Accessibility state
   // Accessibility state
-  const { speak, stop, isPlaying } = useTextToSpeech();
+  const { speak, stop } = useTextToSpeech();
   const [voiceOverEnabled, setVoiceOverEnabled] = useState(false);
   const [storyModeEnabled, setStoryModeEnabled] = useState(false);
   const [highContrastEnabled, setHighContrastEnabled] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [story, setStory] = useState<StoryAsset | null>(null);
-  const [isStoryLoading, setIsStoryLoading] = useState(false);
-  const [storyError, setStoryError] = useState<string | null>(null);
-  const [storyAudio, setStoryAudio] = useState<StoryAudioAsset | null>(null);
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
-  const [brailleResult, setBrailleResult] = useState<{ brf?: string; fullBraille?: string } | null>(null);
-  const [brailleError, setBrailleError] = useState<string | null>(null);
-  const [isBrailleOpen, setIsBrailleOpen] = useState(false);
-  const [isBrailleLoading, setIsBrailleLoading] = useState(false);
   const { language } = useLanguage();
   const { t } = useI18n();
 
@@ -492,17 +462,10 @@ export function MicrosectionPage() {
     fetchMicrosection();
   }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId, language]);
 
-  useEffect(() => {
-    setStory(null);
-    setStoryError(null);
-    setStoryAudio(null);
-    preloadStory();
-  }, [classId, subjectId, chapterSlug, sectionSlug, microsectionId]);
-
   // Voice Control Listener
   useEffect(() => {
     const handleVoiceControl = (event: CustomEvent) => {
-      const { action } = event.detail;
+      const { action, type } = event.detail as any;
 
       switch (action) {
         case 'play':
@@ -537,11 +500,19 @@ export function MicrosectionPage() {
             }
           }
           break;
+        case 'jump':
+          if (data && type) {
+            const target = data.navigation.sectionMicrosections.find((m) => m.type === type);
+            if (target) {
+              navigate(`/${classId}/${subjectId}/${chapterSlug}/${data.section.slug}/${target.id}`);
+            }
+          }
+          break;
       }
     };
 
     // Braille Control Listener
-    const handleBrailleControl = (event: CustomEvent) => {
+    const handleBrailleControl = () => {
       handleBraille();
     };
 
@@ -571,62 +542,8 @@ export function MicrosectionPage() {
     };
   }, [voiceOverEnabled, data, speak, stop]);
 
-  // Braille Export Handler
-  const handleBraille = async () => {
-    if (!data) return;
-
-    setIsBrailleLoading(true);
-    try {
-      const lessonText = getAllContentText(data.microsection);
-
-      const response = await fetch(apiUrl('/api/braille/convert'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lesson: lessonText,
-          normalize: true
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to convert to Braille');
-
-      const result = await response.json();
-
-      if (result.success) {
-        // 1. Download BRF file
-        if (result.brf) {
-          const blobBrf = new Blob([result.brf], { type: 'text/plain' });
-          const urlBrf = window.URL.createObjectURL(blobBrf);
-          const aBrf = document.createElement('a');
-          aBrf.href = urlBrf;
-          aBrf.download = `${data.microsection.title.replace(/\s+/g, '_')}.brf`;
-          document.body.appendChild(aBrf);
-          aBrf.click();
-          window.URL.revokeObjectURL(urlBrf);
-          document.body.removeChild(aBrf);
-        }
-
-        // 2. Download Unicode Braille TXT file
-        if (result.fullBraille) {
-          const blobTxt = new Blob([result.fullBraille], { type: 'text/plain;charset=utf-8' });
-          const urlTxt = window.URL.createObjectURL(blobTxt);
-          const aTxt = document.createElement('a');
-          aTxt.href = urlTxt;
-          aTxt.download = `${data.microsection.title.replace(/\s+/g, '_')}_unicode.txt`;
-          document.body.appendChild(aTxt);
-          aTxt.click();
-          window.URL.revokeObjectURL(urlTxt);
-          document.body.removeChild(aTxt);
-        }
-      }
-    } catch (err) {
-      console.error('Braille export error:', err);
-      alert('Failed to generate Braille files. Please try again.');
-    } finally {
-      setIsBrailleLoading(false);
-    }
+  const handleBraille = () => {
+    window.dispatchEvent(new CustomEvent('braille-open'));
   };
 
   // Story mode: simple highlight sequence
@@ -654,144 +571,6 @@ export function MicrosectionPage() {
     if (highContrastEnabled) document.documentElement.classList.add('high-contrast-mode');
     else document.documentElement.classList.remove('high-contrast-mode');
   }, [highContrastEnabled]);
-
-  const fetchStory = async () => {
-    if (!classId || !subjectId || !chapterSlug || !sectionSlug) return;
-    setIsStoryLoading(true);
-    setStoryError(null);
-    try {
-      const response = await fetch('http://localhost:8000/api/story/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          subjectId,
-          chapterSlug,
-          sectionSlug
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate story');
-      }
-
-      const storyData: StoryAsset = await response.json();
-      setStory(storyData);
-      setStoryAudio(null);
-    } catch (err) {
-      setStoryError(err instanceof Error ? err.message : 'Failed to generate story');
-    } finally {
-      setIsStoryLoading(false);
-    }
-  };
-
-  const preloadStory = async () => {
-    if (!classId || !subjectId || !chapterSlug || !sectionSlug) return;
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/story/${classId}/${subjectId}/${chapterSlug}/${sectionSlug}`
-      );
-      if (!response.ok) {
-        return;
-      }
-      const storyData: StoryAsset = await response.json();
-      if (storyData.status === 'ready') {
-        setStory(storyData);
-      }
-    } catch (err) {
-      console.warn('Story preload failed', err);
-    }
-  };
-
-  const fetchStoryAudio = async (storyData?: StoryAsset, force = false) => {
-    const targetStory = storyData || story;
-    if (!targetStory) return;
-    setIsAudioLoading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/story/audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          subjectId,
-          chapterSlug,
-          sectionSlug,
-          locale: language,
-          force
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate audio');
-      }
-
-      const audioData: { audio: StoryAudioAsset } = await response.json();
-      setStoryAudio(audioData.audio);
-    } catch (err) {
-      setStoryError(err instanceof Error ? err.message : 'Failed to generate audio');
-    } finally {
-      setIsAudioLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (story && language) {
-      fetchStoryAudio(story);
-    }
-  }, [story, language]);
-
-  const openBraille = async () => {
-    if (!data || data.microsection.type !== 'article') {
-      setBrailleError('Braille is currently available for article lessons.');
-      setIsBrailleOpen(true);
-      return;
-    }
-
-    setIsBrailleLoading(true);
-    setBrailleError(null);
-    setIsBrailleOpen(true);
-
-    try {
-      const article = data.microsection as ArticleMicrosection;
-      const lessonText = extractArticleRawText(article.content);
-
-      const response = await fetch('http://localhost:8000/api/braille/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lesson: lessonText })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate braille');
-      }
-
-      const brailleData = await response.json();
-      setBrailleResult({ brf: brailleData.brf, fullBraille: brailleData.fullBraille });
-    } catch (err) {
-      setBrailleError(err instanceof Error ? err.message : 'Failed to generate braille');
-    } finally {
-      setIsBrailleLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const handleStoryOpen = () => {
-      fetchStory();
-    };
-    const handleBrailleOpen = () => {
-      openBraille();
-    };
-
-    window.addEventListener('story-open', handleStoryOpen as EventListener);
-    window.addEventListener('braille-open', handleBrailleOpen as EventListener);
-    return () => {
-      window.removeEventListener('story-open', handleStoryOpen as EventListener);
-      window.removeEventListener('braille-open', handleBrailleOpen as EventListener);
-    };
-  }, [data, classId, subjectId, chapterSlug, sectionSlug]);
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (!data) return;
@@ -896,7 +675,7 @@ export function MicrosectionPage() {
                 voiceOverEnabled={voiceOverEnabled}
                 onVoiceOverToggle={(enabled: boolean) => setVoiceOverEnabled(enabled)}
                 onBraille={handleBraille}
-                isBrailleLoading={isBrailleLoading}
+                isBrailleLoading={false}
                 storyModeEnabled={storyModeEnabled}
                 onStoryModeToggle={(enabled: boolean) => setStoryModeEnabled(enabled)}
                 highContrastEnabled={highContrastEnabled}
@@ -919,52 +698,6 @@ export function MicrosectionPage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-6 py-8 focus-mode-surface">
-        <div className="mb-8 flex flex-wrap items-center gap-3">
-          <button
-            onClick={fetchStory}
-            className="px-4 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-medium hover:bg-indigo-100 disabled:opacity-60"
-            disabled={isStoryLoading}
-          >
-            {isStoryLoading ? t('micro.generatingStory') : t('micro.storyMode')}
-          </button>
-          {microsection.type === 'article' && !story && (
-            <button
-              onClick={openBraille}
-              className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-60"
-              disabled={isBrailleLoading}
-            >
-              {t('micro.brailleOutput')}
-            </button>
-          )}
-          {storyError && (
-            <span className="text-sm text-red-600">{storyError}</span>
-          )}
-        </div>
-
-        {isStoryLoading && (
-          <div className="mb-8 p-4 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700">
-            {t('micro.generatingStory')}
-          </div>
-        )}
-
-        {isAudioLoading && (
-          <div className="mb-8 p-4 rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
-            {t('micro.generatingAudio')}
-          </div>
-        )}
-
-        {story && story.status === 'ready' && microsection.type !== 'video' && (
-          <div className="mb-10">
-            <StoryPlayer
-              story={story}
-              autoPlay={false}
-              audioSlides={storyAudio?.slides}
-              onRegenerateAudio={() => fetchStoryAudio(story, true)}
-              isAudioLoading={isAudioLoading}
-            />
-          </div>
-        )}
-
         {microsection.type === 'article' && (
           <div ref={contentRef}>
             <ArticleViewer content={(microsection as ArticleMicrosection).content} t={t} />
@@ -973,12 +706,6 @@ export function MicrosectionPage() {
         {microsection.type === 'video' && (
           <VideoViewer
             content={(microsection as VideoMicrosection).content}
-            story={story}
-            onGenerateStory={fetchStory}
-            isStoryLoading={isStoryLoading}
-            audioSlides={storyAudio?.slides}
-            onRegenerateAudio={() => fetchStoryAudio(story ?? undefined, true)}
-            isAudioLoading={isAudioLoading}
             t={t}
           />
         )}
@@ -988,48 +715,20 @@ export function MicrosectionPage() {
         {microsection.type === 'practice' && (
           <PracticeViewer content={(microsection as PracticeMicrosection).content} t={t} />
         )}
-      </main>
 
-      {isBrailleOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">{t('micro.brailleOutput')}</h3>
-              <button
-                onClick={() => setIsBrailleOpen(false)}
-                className="text-slate-500 hover:text-slate-700"
-                aria-label="Close braille output"
-              >
-                X
-              </button>
-            </div>
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-auto">
-              {isBrailleLoading && (
-                <div className="text-slate-600">{t('micro.generatingBraille')}</div>
-              )}
-              {brailleError && (
-                <div className="text-red-600">{brailleError}</div>
-              )}
-              {brailleResult?.fullBraille && (
-                <div>
-                  <p className="text-sm text-slate-500 mb-2">Full Braille</p>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
-                    {brailleResult.fullBraille}
-                  </div>
-                </div>
-              )}
-              {brailleResult?.brf && (
-                <div>
-                  <p className="text-sm text-slate-500 mb-2">BRF (Ready for embossing)</p>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap break-words overflow-auto max-w-full">
-                    {brailleResult.brf}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="mt-10 grid gap-6">
+          <StoryCompilerPanel
+            lessonScopeId={data.artifactScopes?.lessonScopeId || `lh:lesson:${classId}:${subjectId}:${chapterSlug}:${sectionSlug}`}
+            locale={language}
+          />
+          <BrailleArtifactsPanel
+            microsectionContentKey={data.artifactScopes?.microsectionContentKey || null}
+            lessonScopeId={data.artifactScopes?.lessonScopeId || `lh:lesson:${classId}:${subjectId}:${chapterSlug}:${sectionSlug}`}
+            chapterScopeId={data.artifactScopes?.chapterScopeId || `lh:chapter:${classId}:${subjectId}:${chapterSlug}`}
+            locale={language}
+          />
         </div>
-      )}
+      </main>
 
       {/* Navigation Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">

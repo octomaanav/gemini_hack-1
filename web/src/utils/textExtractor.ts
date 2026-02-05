@@ -1,4 +1,4 @@
-import type { Lesson } from '../types';
+import type { Lesson, ArticleContent } from '../types';
 
 /**
  * Converts LaTeX/math notation to readable text for TTS
@@ -193,7 +193,7 @@ export const extractArticleRawText = (content: ArticleContent): string => {
 
   if (content.summary.length > 0) {
     parts.push('Summary:');
-    content.summary.forEach((point) => parts.push(point));
+    content.summary.forEach((point: string) => parts.push(point));
   }
 
   if (content.quickCheckQuestions.length > 0) {

@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
-import { chapters, lessons as lessonsTable, classes, curricula, gradeSubjects, subjects } from "../db/schema.js";
+import { chapters, lessons as lessonsTable, classes, curricula, gradeSubjects, subjects, contentVersions } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import type { Unit, UnitLessons, Book, StructuredChapter, StructuredCurriculum } from "../../types/index.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 import { isAuthenticated } from "../middleware/auth.js";
+import { resolveContentKeysForScope, resolveContentVersionForKeys } from "../utils/artifacts/scope.js";
 
 const lessonsRouter = Router();
 
@@ -908,6 +909,21 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
       return res.status(404).json({ error: `Microsection '${microsectionId}' not found` });
     }
 
+    const lessonScopeId = `lh:lesson:${classId}:${subjectId}:${chapterSlug}:${sectionSlug}`;
+    const chapterScopeId = `lh:chapter:${classId}:${subjectId}:${chapterSlug}`;
+    let microsectionContentKey: string | null = null;
+    let microsectionContentVersion: number | null = null;
+    try {
+      const { contentKeys } = await resolveContentKeysForScope({ scopeType: "LESSON", scopeId: lessonScopeId });
+      const idx = microsections.findIndex((m: any) => m.id === microsectionId);
+      if (idx >= 0 && idx < contentKeys.length) {
+        microsectionContentKey = contentKeys[idx];
+        microsectionContentVersion = await resolveContentVersionForKeys([microsectionContentKey]);
+      }
+    } catch {
+      // Optional: deterministic content may not exist for all seeded datasets.
+    }
+
     res.json({
       chapter: {
         chapterId: chapter.slug,
@@ -919,6 +935,12 @@ lessonsRouter.get("/structured/:classId/:subjectId/:chapterSlug/:sectionSlug/:mi
         title: section.title,
       },
       microsection,
+      artifactScopes: {
+        lessonScopeId,
+        chapterScopeId,
+        microsectionContentKey,
+        microsectionContentVersion,
+      },
       navigation: {
         sectionMicrosections: microsections.map((m: any) => ({
           id: m.id,

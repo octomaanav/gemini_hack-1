@@ -21,6 +21,8 @@ import { VoiceAgentControls } from './components/VoiceAgentControls';
 import { AccessibilityProvider } from './components/accessibility/AccessibilityProvider';
 import { GlobalControlsBar } from './components/GlobalControlsBar';
 import { LanguageProvider } from './components/i18n/LanguageProvider';
+import { CommandPalette } from './components/CommandPalette';
+import { VoiceOSMicButton } from './components/VoiceOSMicButton';
 
 function App() {
   return (
@@ -76,7 +78,9 @@ function App() {
                 <Route path="/accessibility-guide" element={<AccessibilityGuidePage />} />
               </Routes>
             </main>
+            <CommandPalette />
             <GlobalControlsBar />
+            <VoiceOSMicButton />
             <VoiceAgentControls />
           </VoiceAgentProvider>
         </LanguageProvider>

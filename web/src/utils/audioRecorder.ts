@@ -7,7 +7,6 @@ export class AudioRecorder extends EventEmitter {
   private audioContext?: AudioContext;
   private source?: MediaStreamAudioSourceNode;
   private recordingWorklet?: AudioWorkletNode;
-  private recording = false;
   public sampleRate: number;
 
   constructor(sampleRate = 16000) {
@@ -52,7 +51,6 @@ export class AudioRecorder extends EventEmitter {
 
     // 6. Connect source to worklet
     this.source.connect(this.recordingWorklet);
-    this.recording = true;
 
     URL.revokeObjectURL(workletUrl);
   }
@@ -62,6 +60,5 @@ export class AudioRecorder extends EventEmitter {
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = undefined;
     this.recordingWorklet = undefined;
-    this.recording = false;
   }
 }

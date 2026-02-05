@@ -128,7 +128,7 @@ export class AudioStreamer {
       // Connect to worklets if any
       const worklets = registeredWorklets.get(this.context);
       if (worklets) {
-        Object.entries(worklets).forEach(([workletName, graph]) => {
+        Object.entries(worklets).forEach(([_workletName, graph]) => {
           const { node, handlers } = graph;
           if (node) {
             source.connect(node);

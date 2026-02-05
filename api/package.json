@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "start": "tsx src/server.ts",
     "dev": "npm run migrate:db && tsx watch src/server.ts",
     "generate:db": "drizzle-kit generate",
     "migrate:db": "drizzle-kit migrate",
@@ -10,6 +11,8 @@
     "studio:db": "drizzle-kit studio",
     "seed": "tsx src/db/seed.ts",
     "seed:lessons": "tsx src/db/seedLessons.ts",
+    "seed:testuser": "tsx src/db/seedTestUser.ts",
+    "test": "NODE_ENV=test TEST_AUTH_BYPASS=true node --import tsx --test",
     "test:live-api": "tsx src/test-live-api.ts"
   },
   "keywords": [],
@@ -32,8 +35,10 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^1.1.4",
+    "pdfjs-dist": "^5.4.624",
     "pg": "^8.16.3",
     "speaker": "^0.5.4",
+    "uuid": "^13.0.0",
     "wavefile": "^11.0.0"
   },
   "devDependencies": {

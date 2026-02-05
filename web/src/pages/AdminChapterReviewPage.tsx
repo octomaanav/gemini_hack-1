@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { ChapterInfo, TOCSection, ParsedUnit, UnitLessons } from '../types';
 import { getFile, clearAllFiles } from '../utils/fileStorage';
+import { apiUrl } from '../utils/api';
 
 interface LocationState {
   chapters: ChapterInfo[];

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ChapterInfo, TOCSection } from '../types';
 import { getFile } from '../utils/fileStorage';
+import { apiUrl } from '../utils/api';
 
 function ChapterReviewPage() {
   const [chapters, setChapters] = useState<ChapterInfo[]>([]);

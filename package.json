@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "selftest": "bash scripts/selftest.sh"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "multer": "^2.0.2",

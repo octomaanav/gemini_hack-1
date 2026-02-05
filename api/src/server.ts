@@ -1,103 +1,25 @@
 import "dotenv/config";
-import express from "express";
-import session from "express-session";
-import passport from "passport";
-import cors from "cors";
 import { sql } from "drizzle-orm";
 import { db } from "./db/index.js";
 import { seed } from "./db/seed.js";
 import { seedLessons } from "./db/seedLessons.js";
-import usersRouter from "./routes/users.js";
-import accountsRouter from "./routes/accounts.js";
-import parseSourceRouter from "./routes/parse_source.js";
-import brailleRouter from "./routes/braille.js";
-import lessonsRouter from "./routes/lessons.js";
-import curriculumRouter from "./routes/curriculum.js";
-import adminRouter from "./routes/admin.js";
-import uploadRouter from "./routes/upload.js";
-import storyRouter from "./routes/story.js";
-import { storageConfig } from "./utils/storage.js";
 import { startWorkerLoop } from "./worker/index.js";
-import contentRouter from "./routes/content.js";
-import storyV2Router from "./routes/story_v2.js";
-import brailleV2Router from "./routes/braille_v2.js";
+import { createApp } from "./app.js";
 
-const app = express();
-app.set("etag", false);
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const originalJson = res.json.bind(res);
-  res.json = (body: any) => {
-    const ms = Date.now() - start;
-    console.log(`[api] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`, body);
-    return originalJson(body);
-  };
-  res.on("finish", () => {
-    if (res.headersSent && res.statusCode !== 200) {
-      console.log(`[api] ${req.method} ${req.originalUrl} ${res.statusCode}`);
-    }
-  });
-  next();
-});
-// CORS configuration
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true,
-  })
-);
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Serve generated media (story slides, video assets)
-if (storageConfig.provider === "local") {
-  app.use("/media", express.static(storageConfig.localRoot));
-}
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "learnlens-secret-key-change-in-production",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: "lax",
-    },
-  })
-);
-
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-app.use("/users", usersRouter);
-app.use("/api/auth", accountsRouter);
-app.use("/api/parse", parseSourceRouter);
-app.use("/api/braille", brailleRouter);
-app.use("/api/lessons", lessonsRouter);
-app.use("/api/curriculum", curriculumRouter);
-app.use("/api/admin", adminRouter);
-app.use("/api/upload", uploadRouter);
-app.use("/api/story", storyRouter);
-app.use("/api/content", contentRouter);
-app.use("/api/story_v2", storyV2Router);
-app.use("/api/braille_v2", brailleV2Router);
+const app = createApp();
 
 // Start DB-backed worker loop in this process (no Redis)
-startWorkerLoop().catch((err) => {
-  console.error("[worker] failed to start", err);
-});
+if (process.env.WORKER_IN_PROCESS !== "false") {
+  startWorkerLoop().catch((err) => {
+    console.error("[worker] failed to start", err);
+  });
+}
 
 async function startServer() {
   const PORT = process.env.PORT || 8000;
 
   const requiredEnvVars = [
     "DATABASE_URL",
-    "GEMINI_API_KEY",
   ];
 
   const missingEnvVars = requiredEnvVars.filter(
@@ -116,6 +38,10 @@ async function startServer() {
   }
 
   console.log("All required environment variables are set");
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn("[api] GEMINI_API_KEY not set. AI generation features will run in fallback/test mode where available.");
+  }
 
   // Database connection check
   try {

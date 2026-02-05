@@ -4,7 +4,6 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { db } from "../db/index.js";
 import { users, userChapters } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
 import type { User } from "../../types/index.js";
 
 const accountsRouter = Router();
@@ -20,7 +19,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
-          const userId = uuidv4();
           const email = profile.emails?.[0]?.value;
           const name = profile.displayName;
 
@@ -31,11 +29,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           if (!name) {
             return done(new Error("Name is required"), undefined);
           }
-          const userInfo = {
-            user_id: userId,
-            name: name,
-            email: email,
-          };
+          const userInfo = { name, email };
 
           let user = await db.select().from(users).where(eq(users.email, userInfo.email));
           if (user.length === 0) {
@@ -105,13 +99,21 @@ accountsRouter.get(
 
 
 accountsRouter.get("/me", async (req, res) => {
-  const user = req.user as User;
-  if (!user) {
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    return res.redirect(`${frontendUrl}/login`);
+  // In dev/prod this is session-backed. In tests we allow a header-based bypass so E2E can run without cookies.
+  const testBypassEnabled =
+    process.env.NODE_ENV === "test" && process.env.TEST_AUTH_BYPASS === "true";
+  const headerEmail = req.header("x-test-user-email")?.toLowerCase();
+
+  const user = (req.user as User | undefined) || (testBypassEnabled && headerEmail ? ({ email: headerEmail } as any) : undefined);
+  if (!user?.email) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
-  const userEntry = await db.select().from(users).where(eq(users.email, user.email)).limit(1);
-  res.json({ user: userEntry[0] })
+
+  const [userEntry] = await db.select().from(users).where(eq(users.email, user.email)).limit(1);
+  if (!userEntry) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  return res.json({ user: userEntry });
 });
 
 accountsRouter.put("/me", async (req, res) => {

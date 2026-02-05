@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { BUCKET, getSignedDownloadUrl, uploadFile } from "./s3.js";
 
 export type StorageProvider = "local" | "s3";
 
@@ -25,14 +26,31 @@ export const ensureDir = async (dir: string) => {
 export interface SavedAsset {
   absolutePath: string;
   publicUrl: string;
+  key: string;
+  bucket?: string;
+  sizeBytes?: number;
+  mimeType?: string;
 }
 
-export const saveBase64File = async (base64: string, relativePath: string): Promise<SavedAsset> => {
-  if (storageConfig.provider !== "local") {
-    throw new Error("Only local storage is configured. Set MEDIA_STORAGE_PROVIDER=local or implement a remote provider.");
+export const saveBase64File = async (
+  base64: string,
+  relativePath: string,
+  contentType: string = "application/octet-stream"
+): Promise<SavedAsset> => {
+  const safeRelativePath = relativePath.replace(/^\/+/, "");
+  if (storageConfig.provider === "s3") {
+    const buffer = Buffer.from(base64, "base64");
+    const uploaded = await uploadFile(buffer, safeRelativePath, contentType);
+    return {
+      absolutePath: "",
+      publicUrl: uploaded.url,
+      key: uploaded.key,
+      bucket: BUCKET,
+      sizeBytes: uploaded.size,
+      mimeType: uploaded.contentType,
+    };
   }
 
-  const safeRelativePath = relativePath.replace(/^\/+/, "");
   const absolutePath = path.join(storageConfig.localRoot, safeRelativePath);
 
   await ensureDir(path.dirname(absolutePath));
@@ -43,15 +61,30 @@ export const saveBase64File = async (base64: string, relativePath: string): Prom
   return {
     absolutePath,
     publicUrl,
+    key: safeRelativePath,
+    sizeBytes: Buffer.byteLength(base64, "base64"),
+    mimeType: contentType,
   };
 };
 
-export const saveBufferFile = async (buffer: Buffer, relativePath: string): Promise<SavedAsset> => {
-  if (storageConfig.provider !== "local") {
-    throw new Error("Only local storage is configured. Set MEDIA_STORAGE_PROVIDER=local or implement a remote provider.");
+export const saveBufferFile = async (
+  buffer: Buffer,
+  relativePath: string,
+  contentType: string = "application/octet-stream"
+): Promise<SavedAsset> => {
+  const safeRelativePath = relativePath.replace(/^[\\/]+/, "");
+  if (storageConfig.provider === "s3") {
+    const uploaded = await uploadFile(buffer, safeRelativePath, contentType);
+    return {
+      absolutePath: "",
+      publicUrl: uploaded.url,
+      key: uploaded.key,
+      bucket: BUCKET,
+      sizeBytes: uploaded.size,
+      mimeType: uploaded.contentType,
+    };
   }
 
-  const safeRelativePath = relativePath.replace(/^[\\/]+/, "");
   const absolutePath = path.join(storageConfig.localRoot, safeRelativePath);
 
   await ensureDir(path.dirname(absolutePath));
@@ -62,5 +95,17 @@ export const saveBufferFile = async (buffer: Buffer, relativePath: string): Prom
   return {
     absolutePath,
     publicUrl,
+    key: safeRelativePath,
+    sizeBytes: buffer.length,
+    mimeType: contentType,
   };
+};
+
+export const getDownloadUrlForKey = async (key: string, expiresInSeconds: number = 300): Promise<string> => {
+  const safeKey = String(key || "").replace(/^[\\/]+/, "");
+  if (!safeKey) throw new Error("key is required");
+  if (storageConfig.provider === "s3") {
+    return getSignedDownloadUrl(safeKey, expiresInSeconds);
+  }
+  return `${storageConfig.publicBaseUrl}/${safeKey.replace(/\\/g, "/")}`;
 };

@@ -39,7 +39,21 @@ export const enqueueJob = async (input: EnqueueJobInput) => {
     .limit(1);
 
   if (existing.length > 0) {
-    return existing[0];
+    const job = existing[0];
+    // Allow safe retries: if a previous attempt failed, re-queue it.
+    if (job.status === "failed") {
+      const [updated] = await db
+        .update(generationJobs)
+        .set({
+          status: "queued",
+          error: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(generationJobs.id, job.id))
+        .returning();
+      return updated || job;
+    }
+    return job;
   }
 
   const [created] = await db

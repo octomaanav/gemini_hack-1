@@ -2,13 +2,20 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { eq, and } from "drizzle-orm";
+import crypto from "node:crypto";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { classes, curricula, storyAssets, storyAudioAssets } from "../db/schema.js";
 import { callGeminiJson, hasGeminiApiKey } from "../utils/gemini.js";
 import { generateImage } from "../utils/imageGen.js";
 import { saveBase64File, saveBufferFile, storageConfig } from "../utils/storage.js";
 import { synthesizeSpeech } from "../utils/tts.js";
+import { isAuthenticated } from "../middleware/auth.js";
+import { derivedArtifacts, userChapters, users } from "../db/schema.js";
+import { makeArtifactKey } from "../utils/artifacts/key.js";
+import { enqueueJob } from "../utils/jobQueue.js";
+import { sha256Text } from "../utils/hash.js";
+import { resolveContentKeysForScope, resolveContentVersionForKeys } from "../utils/artifacts/scope.js";
 import type {
   StructuredChapter,
   StructuredSection,
@@ -31,6 +38,24 @@ export const normalizeLocale = (locale: string) => {
   if (cleaned.toLowerCase().startsWith("es")) return "es-ES";
   if (cleaned.toLowerCase().startsWith("hi")) return "hi-IN";
   return "en-US";
+};
+
+const getAuthedUserId = async (req: any): Promise<string | null> => {
+  const direct = req.user?.id;
+  if (direct) return direct;
+  const email = req.user?.email;
+  if (!email) return null;
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  return row?.id || null;
+};
+
+const hasChapterAccess = async (userId: string, chapterId: string): Promise<boolean> => {
+  const [row] = await db
+    .select({ id: userChapters.id })
+    .from(userChapters)
+    .where(and(eq(userChapters.userId, userId), eq(userChapters.chapterId, chapterId)))
+    .limit(1);
+  return !!row?.id;
 };
 
 const translateSlides = async (
@@ -496,6 +521,294 @@ storyRouter.post("/audio", async (req, res) => {
         .where(eq(storyAudioAssets.id, audioRecord.id));
     }
     return res.status(500).json({ error: "Failed to generate story audio" });
+  }
+});
+
+// =============================================================================
+// Story Compiler v3 (deterministic + variants + worker-backed)
+// =============================================================================
+
+type StoryCompileBody = {
+  lessonId: string; // expected: lh:lesson:{classId}:{subjectSlug}:{chapterSlug}:{sectionSlug}
+  locale: string;
+  reuseLatest?: boolean;
+};
+
+const upsertDerivedArtifact = async (input: {
+  scopeType: "LESSON";
+  scopeId: string;
+  contentVersion: number;
+  locale: string;
+  artifactType: "STORY_PLAN" | "STORY_SLIDES" | "STORY_AUDIO";
+  variantId: string;
+  createdByUserId: string | null;
+  metaJson?: any;
+}) => {
+  const cacheKey = makeArtifactKey({
+    scopeType: input.scopeType,
+    scopeId: input.scopeId,
+    version: input.contentVersion,
+    locale: input.locale,
+    artifactType: input.artifactType,
+    variantId: input.variantId,
+  });
+
+  const [existing] = await db
+    .select()
+    .from(derivedArtifacts)
+    .where(eq(derivedArtifacts.cacheKey, cacheKey))
+    .limit(1);
+
+  if (existing) {
+    if (existing.status === "READY") return existing;
+    const [updated] = await db
+      .update(derivedArtifacts)
+      .set({ status: "PENDING", errorJson: null, updatedAt: new Date() })
+      .where(eq(derivedArtifacts.id, existing.id))
+      .returning();
+    return updated || existing;
+  }
+
+  const inserted = await db
+    .insert(derivedArtifacts)
+    .values({
+      scopeType: input.scopeType,
+      scopeId: input.scopeId,
+      contentVersion: input.contentVersion,
+      locale: input.locale,
+      artifactType: input.artifactType,
+      variantId: input.variantId,
+      cacheKey,
+      status: "PENDING",
+      metaJson: input.metaJson || {},
+      createdByUserId: input.createdByUserId,
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (inserted.length > 0) return inserted[0];
+
+  const [row] = await db
+    .select()
+    .from(derivedArtifacts)
+    .where(eq(derivedArtifacts.cacheKey, cacheKey))
+    .limit(1);
+  if (!row) throw new Error("artifact_upsert_failed");
+  return row;
+};
+
+const enqueueStoryJob = async (artifact: typeof derivedArtifacts.$inferSelect, jobType: string) => {
+  const idempotencyKey = sha256Text([jobType, artifact.cacheKey].join("|"));
+  await enqueueJob({
+    jobType,
+    contentKey: artifact.cacheKey,
+    version: artifact.contentVersion,
+    locale: artifact.locale,
+    scope: artifact.scopeType,
+    format: artifact.artifactType,
+    idempotencyKey,
+  });
+};
+
+const compileStoryInternal = async (input: {
+  req: any;
+  lessonId: string;
+  locale: string;
+  reuseLatest: boolean;
+}) => {
+  const { req, lessonId, locale, reuseLatest } = input;
+  const userId = await getAuthedUserId(req);
+
+  const { contentKeys, chapterIdForAccess } = await resolveContentKeysForScope({
+    scopeType: "LESSON",
+    scopeId: lessonId,
+  });
+  const contentVersion = await resolveContentVersionForKeys(contentKeys);
+  if (contentVersion <= 0) {
+    return { error: { status: 404, body: { error: "content_not_found" } } as const };
+  }
+
+  if (chapterIdForAccess && userId) {
+    const ok = await hasChapterAccess(userId, chapterIdForAccess);
+    if (!ok) {
+      return { error: { status: 403, body: { error: "forbidden" } } as const };
+    }
+  }
+
+  let variantId: string;
+  if (reuseLatest) {
+    const [latest] = await db
+      .select()
+      .from(derivedArtifacts)
+      .where(and(
+        eq(derivedArtifacts.scopeType, "LESSON"),
+        eq(derivedArtifacts.scopeId, lessonId),
+        eq(derivedArtifacts.contentVersion, contentVersion),
+        eq(derivedArtifacts.locale, locale),
+        eq(derivedArtifacts.artifactType, "STORY_PLAN"),
+      ))
+      .orderBy(desc(derivedArtifacts.createdAt))
+      .limit(1);
+    variantId = latest?.variantId || crypto.randomUUID();
+  } else {
+    variantId = crypto.randomUUID();
+  }
+
+  const baseSeed = sha256Text([lessonId, String(contentVersion), locale].join("|"));
+  const variantSeed = sha256Text([baseSeed, variantId].join("|"));
+
+  const plan = await upsertDerivedArtifact({
+    scopeType: "LESSON",
+    scopeId: lessonId,
+    contentVersion,
+    locale,
+    artifactType: "STORY_PLAN",
+    variantId,
+    createdByUserId: userId,
+    metaJson: {
+      seed: { baseSeed, variantSeed },
+      source: { contentKeys },
+    },
+  });
+  const slides = await upsertDerivedArtifact({
+    scopeType: "LESSON",
+    scopeId: lessonId,
+    contentVersion,
+    locale,
+    artifactType: "STORY_SLIDES",
+    variantId,
+    createdByUserId: userId,
+    metaJson: { seed: { baseSeed, variantSeed } },
+  });
+  const audio = await upsertDerivedArtifact({
+    scopeType: "LESSON",
+    scopeId: lessonId,
+    contentVersion,
+    locale,
+    artifactType: "STORY_AUDIO",
+    variantId,
+    createdByUserId: userId,
+    metaJson: { seed: { baseSeed, variantSeed } },
+  });
+
+  if (plan.status !== "READY") {
+    await enqueueStoryJob(plan, "STORY_PLAN_GENERATE");
+  }
+
+  return {
+    ok: {
+      lessonId,
+      locale,
+      contentVersion,
+      variantId,
+      artifacts: { planId: plan.id, slidesId: slides.id, audioId: audio.id },
+    },
+  } as const;
+};
+
+storyRouter.post("/compile", isAuthenticated, async (req, res) => {
+  try {
+    const body = req.body as StoryCompileBody;
+    const lessonId = String(body.lessonId || "").trim();
+    const locale = normalizeLocale(body.locale || "en-US");
+    const reuseLatest = body.reuseLatest !== false;
+    if (!lessonId) return res.status(400).json({ error: "lessonId is required" });
+    const result = await compileStoryInternal({ req, lessonId, locale, reuseLatest });
+    if ("error" in result) return res.status(result.error.status).json(result.error.body);
+    return res.json(result.ok);
+  } catch (error) {
+    console.error("story compile error:", error);
+    return res.status(500).json({ error: "failed_to_compile_story" });
+  }
+});
+
+storyRouter.post("/regenerate", isAuthenticated, async (req, res) => {
+  try {
+    const body = req.body as StoryCompileBody;
+    const lessonId = String(body.lessonId || "").trim();
+    const locale = normalizeLocale(body.locale || "en-US");
+    if (!lessonId) return res.status(400).json({ error: "lessonId is required" });
+    const result = await compileStoryInternal({ req, lessonId, locale, reuseLatest: false });
+    if ("error" in result) return res.status(result.error.status).json(result.error.body);
+    return res.json(result.ok);
+  } catch (error) {
+    console.error("story regenerate error:", error);
+    return res.status(500).json({ error: "failed_to_regenerate_story" });
+  }
+});
+
+storyRouter.get("/variants", isAuthenticated, async (req, res) => {
+  try {
+    const lessonId = String(req.query.lessonId || "").trim();
+    const locale = normalizeLocale(String(req.query.locale || "en-US"));
+    if (!lessonId) return res.status(400).json({ error: "lessonId is required" });
+
+    const userId = await getAuthedUserId(req);
+    const { contentKeys, chapterIdForAccess } = await resolveContentKeysForScope({
+      scopeType: "LESSON",
+      scopeId: lessonId,
+    });
+    const contentVersion = await resolveContentVersionForKeys(contentKeys);
+    if (contentVersion <= 0) return res.status(404).json({ error: "content_not_found" });
+    if (chapterIdForAccess && userId) {
+      const ok = await hasChapterAccess(userId, chapterIdForAccess);
+      if (!ok) return res.status(403).json({ error: "forbidden" });
+    }
+
+    const plans = await db
+      .select()
+      .from(derivedArtifacts)
+      .where(and(
+        eq(derivedArtifacts.scopeType, "LESSON"),
+        eq(derivedArtifacts.scopeId, lessonId),
+        eq(derivedArtifacts.contentVersion, contentVersion),
+        eq(derivedArtifacts.locale, locale),
+        eq(derivedArtifacts.artifactType, "STORY_PLAN"),
+      ))
+      .orderBy(desc(derivedArtifacts.createdAt))
+      .limit(50);
+
+    const variants = [];
+    for (const plan of plans) {
+      const variantId = plan.variantId || "0";
+      const [slides] = await db
+        .select()
+        .from(derivedArtifacts)
+        .where(eq(derivedArtifacts.cacheKey, makeArtifactKey({
+          scopeType: "LESSON",
+          scopeId: lessonId,
+          version: contentVersion,
+          locale,
+          artifactType: "STORY_SLIDES",
+          variantId,
+        })))
+        .limit(1);
+      const [audio] = await db
+        .select()
+        .from(derivedArtifacts)
+        .where(eq(derivedArtifacts.cacheKey, makeArtifactKey({
+          scopeType: "LESSON",
+          scopeId: lessonId,
+          version: contentVersion,
+          locale,
+          artifactType: "STORY_AUDIO",
+          variantId,
+        })))
+        .limit(1);
+
+      variants.push({
+        variantId,
+        createdAt: plan.createdAt,
+        plan: { id: plan.id, status: plan.status },
+        slides: slides ? { id: slides.id, status: slides.status } : null,
+        audio: audio ? { id: audio.id, status: audio.status } : null,
+      });
+    }
+
+    return res.json({ lessonId, locale, contentVersion, variants });
+  } catch (error) {
+    console.error("variants error:", error);
+    return res.status(500).json({ error: "failed_to_list_variants" });
   }
 });
 

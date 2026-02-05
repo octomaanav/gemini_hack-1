@@ -264,6 +264,46 @@ export const generationJobs = pgTable("generation_jobs", {
 });
 
 // =============================================================================
+// DERIVED ARTIFACTS (v3 deterministic outputs + story variants)
+// =============================================================================
+
+export const derivedArtifacts = pgTable("derived_artifacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  scopeType: text("scope_type").notNull(),
+  scopeId: text("scope_id").notNull(),
+  contentVersion: integer("content_version").notNull(),
+  locale: text("locale").notNull(),
+  artifactType: text("artifact_type").notNull(),
+  variantId: text("variant_id"),
+  cacheKey: text("cache_key").notNull().unique(),
+  status: text("status").notNull(),
+  s3Bucket: text("s3_bucket"),
+  s3Key: text("s3_key"),
+  mimeType: text("mime_type"),
+  sizeBytes: integer("size_bytes"),
+  metaJson: jsonb("meta_json").notNull().default({}),
+  errorJson: jsonb("error_json"),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// =============================================================================
+// VOICE EVENTS (audit log for voice OS)
+// =============================================================================
+
+export const voiceEvents = pgTable("voice_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  sessionId: text("session_id"),
+  transcript: text("transcript").notNull(),
+  intent: text("intent"),
+  action: text("action"),
+  payloadJson: jsonb("payload_json").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// =============================================================================
 // STORY AUDIO ASSETS TABLE (Localized narration + captions)
 // =============================================================================
 

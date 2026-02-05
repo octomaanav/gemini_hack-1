@@ -68,7 +68,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this._status = "connecting";
 
     const callbacks: LiveCallbacks = {
-      onopen: (...args) => {
+      onopen: () => {
         this.onopen();
       },
       onmessage: (message) => {

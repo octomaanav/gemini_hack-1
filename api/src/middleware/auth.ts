@@ -6,6 +6,13 @@ import path from "path";
  * Middleware to check if user is authenticated
  */
 export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    // Test-only bypass for integration/E2E (does not apply in production builds).
+    if (process.env.NODE_ENV === "test" && process.env.TEST_AUTH_BYPASS === "true") {
+        const email = req.header("x-test-user-email") || "test@example.com";
+        (req as any).user = { email };
+        (req as any).isAuthenticated = () => true;
+        return next();
+    }
     if (req.isAuthenticated()) {
         return next();
     }

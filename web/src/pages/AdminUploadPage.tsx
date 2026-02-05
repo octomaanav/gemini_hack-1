@@ -7,6 +7,7 @@ import type {
   ChapterInfo 
 } from '../types';
 import { storeFile, clearAllFiles } from '../utils/fileStorage';
+import { apiUrl } from '../utils/api';
 
 type Step = 'select' | 'upload' | 'uploading';
 

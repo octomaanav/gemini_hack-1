@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import type { 
   CurriculumWithGrades, 
   SubjectWithChapters, 
-  ChapterEntity,
   LessonEntity,
   LessonContent,
   VideoContent,
@@ -68,7 +67,6 @@ function AdminLessonEditorPage() {
   
   // Video upload state
   const [uploadingVideoFor, setUploadingVideoFor] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // Fetch curricula on mount
   useEffect(() => {
@@ -394,7 +392,6 @@ function AdminLessonEditorPage() {
     if (!file) return;
     
     setUploadingVideoFor(videoId);
-    setUploadProgress(0);
     setError(null);
     
     try {
@@ -416,12 +413,10 @@ function AdminLessonEditorPage() {
       
       // Update video URL with the uploaded file URL
       updateVideo(videoId, { url: result.url });
-      setUploadProgress(100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload video');
     } finally {
       setUploadingVideoFor(null);
-      setUploadProgress(0);
     }
   };
 

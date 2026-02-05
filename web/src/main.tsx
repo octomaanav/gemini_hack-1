@@ -7,7 +7,14 @@ if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
     const method = init?.method || 'GET';
-    const url = typeof input === 'string' ? input : input.url;
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof Request
+          ? input.url
+          : input instanceof URL
+            ? input.toString()
+            : String(input);
     console.log('[fetch]', method, url, init?.body ? { body: init.body } : '');
     const response = await originalFetch(input, init);
     try {

@@ -776,7 +776,6 @@ export function MicrosectionPage() {
       setIsBrailleLoading(false);
     }
   };
-
   useEffect(() => {
     const handleStoryOpen = () => {
       fetchStory();

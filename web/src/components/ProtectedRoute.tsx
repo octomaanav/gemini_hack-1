@@ -12,13 +12,22 @@ export const ProtectedRoute = ({ children, requireSetup = false }: ProtectedRout
   const { user, isLoading, isProfileComplete } = useAuth();
   const [canRender, setCanRender] = useState(false);
   useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
     if (!isLoading) {
       if (!user) {
-        navigate('/login');
+        // Debounce redirect to prevent race conditions during auth check
+        timeout = setTimeout(() => {
+          navigate('/login');
+        }, 100);
       } else {
         setCanRender(true);
       }
     }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [isLoading, user, isProfileComplete, navigate, requireSetup]);
 
   if (isLoading) {

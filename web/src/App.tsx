@@ -17,6 +17,7 @@ import AdminChapterReviewPage from './pages/AdminChapterReviewPage';
 import AdminLessonEditorPage from './pages/AdminLessonEditorPage';
 import { AdminRoute } from './components/AdminRoute';
 import AccessibilityGuidePage from './pages/AccessibilityGuidePage';
+//import { AuthProvider } from './context/AuthContext';
 import { VoiceAgentProvider } from './components/VoiceAgentProvider';
 import { VoiceAgentControls } from './components/VoiceAgentControls';
 import { AccessibilityProvider } from './components/accessibility/AccessibilityProvider';

@@ -1,13 +1,5 @@
 {
   "compilerOptions": {
-    "types": [
-      "node",
-      "express",
-      "multer"
-    ],
-    "typeRoots": [
-      "./node_modules/@types"
-    ],
     "outDir": "./dist",
     "module": "nodenext",
     "target": "esnext",

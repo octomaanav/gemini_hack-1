@@ -19,7 +19,7 @@ const upload = multer({
  */
 parseSourceRouter.post("/chapters", upload.single("file"), async (req: Request, res: Response) => {
   try {
-    const file = (req as Request & { file?: Express.Multer.File }).file;
+    const file = (req as any).file;
     if (!file) {
       return res.status(400).json({ error: "Upload a PDF file with field name 'file'" });
     }
@@ -53,7 +53,7 @@ parseSourceRouter.post("/chapters", upload.single("file"), async (req: Request, 
  */
 parseSourceRouter.post("/full", upload.single("file"), async (req: Request, res: Response) => {
   try {
-    const file = (req as Request & { file?: Express.Multer.File }).file;
+    const file = (req as any).file;
     if (!file) {
       return res.status(400).json({ error: "Upload a PDF file with field name 'file'" });
     }
@@ -64,24 +64,24 @@ parseSourceRouter.post("/full", upload.single("file"), async (req: Request, res:
     // Get chapters from request body
     const chaptersJson = req.body.chapters;
     if (!chaptersJson) {
-      return res.status(400).json({ 
-        error: "Missing 'chapters' field. First call /chapters endpoint to get the chapters array, then pass it here." 
+      return res.status(400).json({
+        error: "Missing 'chapters' field. First call /chapters endpoint to get the chapters array, then pass it here."
       });
     }
 
     let chapters: ChapterInfo[];
     try {
       chapters = typeof chaptersJson === 'string' ? JSON.parse(chaptersJson) : chaptersJson;
-      
+
       if (!Array.isArray(chapters) || chapters.length === 0) {
         return res.status(400).json({ error: "'chapters' must be a non-empty array" });
       }
-      
+
       // Validate chapter structure
       for (const chapter of chapters) {
         if (!chapter.title || typeof chapter.startPage !== 'number') {
-          return res.status(400).json({ 
-            error: "Each chapter must have 'title' (string) and 'startPage' (number)" 
+          return res.status(400).json({
+            error: "Each chapter must have 'title' (string) and 'startPage' (number)"
           });
         }
       }
@@ -91,11 +91,11 @@ parseSourceRouter.post("/full", upload.single("file"), async (req: Request, res:
 
     console.log(`Starting full textbook parse for ${file.originalname} with ${chapters.length} chapters...`);
     const units = await parseFullTextbook(file.buffer, chapters);
-    
-    return res.json({ 
+
+    return res.json({
       success: true,
       totalUnits: units.length,
-      units 
+      units
     });
   } catch (error) {
     console.error("Error parsing textbook:", error);

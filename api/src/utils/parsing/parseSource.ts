@@ -1,4 +1,4 @@
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument, PDFDocumentProxy } from "pdfjs-dist";
 import { callGeminiJson } from "../gemini.js";
 import type { TOCSection, ChapterInfo, Section, ParsedUnit } from "../../../types/index.js";
 
@@ -18,47 +18,47 @@ interface TOCCandidate {
 function scoreTOCPage(pageText: string): number {
   let score = 0;
   const lowerText = pageText.toLowerCase();
-  
+
   // Strong indicators: "Table of Contents" or "Contents" as a standalone heading
   // Check if it appears near the start or as a prominent phrase
-  if (/^[\s]*table\s+of\s+contents/i.test(pageText) || 
-      /\n[\s]*table\s+of\s+contents/i.test(pageText)) {
+  if (/^[\s]*table\s+of\s+contents/i.test(pageText) ||
+    /\n[\s]*table\s+of\s+contents/i.test(pageText)) {
     score += 50;
-  } else if (/^[\s]*contents[\s]*$/im.test(pageText) || 
-             /\n[\s]*contents[\s]*\n/i.test(pageText)) {
+  } else if (/^[\s]*contents[\s]*$/im.test(pageText) ||
+    /\n[\s]*contents[\s]*\n/i.test(pageText)) {
     score += 40;
   } else if (lowerText.includes("table of contents")) {
     score += 30;
   } else if (lowerText.includes("contents")) {
     score += 10;
   }
-  
+
   // Count page number patterns (lines ending with numbers, or "... 23" patterns)
   // TOC pages typically have many such patterns
   const pageNumberPatterns = pageText.match(/\.{2,}\s*\d+|\s+\d{1,4}\s*$/gm) || [];
   score += Math.min(pageNumberPatterns.length * 5, 40); // Cap at 40 points
-  
+
   // Count entries that look like chapter/unit listings
   const chapterPatterns = pageText.match(/chapter\s+\d+|unit\s+\d+|lesson\s+\d+|\d+\.\s+[A-Z]/gi) || [];
   score += Math.min(chapterPatterns.length * 8, 32); // Cap at 32 points
-  
+
   // Penalize if the page has very long paragraphs (likely content, not TOC)
   const avgWordsPerLine = pageText.split('\n').reduce((acc, line) => {
     const words = line.trim().split(/\s+/).length;
     return acc + words;
   }, 0) / Math.max(pageText.split('\n').length, 1);
-  
+
   if (avgWordsPerLine > 15) {
     score -= 20; // Likely a content page, not TOC
   }
-  
+
   // Bonus if many lines have similar structure (typical of TOC)
   const lines = pageText.split('\n').filter(l => l.trim().length > 0);
   const linesWithNumbers = lines.filter(l => /\d+\s*$/.test(l.trim())).length;
   if (lines.length > 5 && linesWithNumbers / lines.length > 0.3) {
     score += 25; // More than 30% of lines end with numbers
   }
-  
+
   return score;
 }
 
@@ -68,7 +68,7 @@ export async function extractTOCText(
   maxTocPagesToExtract = 30
 ): Promise<string> {
   const data = new Uint8Array(buffer);
-  const loadingTask = pdfjs.getDocument({ data });
+  const loadingTask = getDocument({ data });
   const pdf = await loadingTask.promise;
 
   const candidates: TOCCandidate[] = [];
@@ -79,7 +79,7 @@ export async function extractTOCText(
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
     const pageText = content.items.map((item: any) => item.str).join(" ");
-    
+
     // Also get text with newlines preserved for better pattern matching
     const pageTextWithNewlines = content.items.map((item: any) => {
       // pdfjs items have transform info; use hasEOL or check for significant Y changes
@@ -87,7 +87,7 @@ export async function extractTOCText(
     }).join("");
 
     const score = scoreTOCPage(pageTextWithNewlines);
-    
+
     if (score >= minScoreThreshold) {
       candidates.push({ pageNum, score, text: pageText });
       console.log(`Page ${pageNum} scored ${score} as potential TOC`);
@@ -101,7 +101,7 @@ export async function extractTOCText(
   // Sort by score (highest first) and pick the best candidate
   candidates.sort((a, b) => b.score - a.score);
   const bestCandidate = candidates[0];
-  
+
   console.log(`Selected page ${bestCandidate.pageNum} as TOC start (score: ${bestCandidate.score})`);
 
   // Extract pages starting from TOC
@@ -122,7 +122,7 @@ export async function extractTOCText(
 
 export async function extractChaptersWithGemini(buffer: Buffer): Promise<ChapterInfo[]> {
   const tocText = await extractTOCText(buffer);
-  
+
   const prompt = `You are a PDF parsing assistant. Below is the text extracted from a textbook's Table of Contents (TOC) section. It may span multiple pages.
 
 Your task:
@@ -173,7 +173,7 @@ TOC Text:
 ${tocText}`;
 
   const result = await callGeminiJson<{ chapters: ChapterInfo[] }>(prompt);
-  
+
   if (!result || !result.chapters || result.chapters.length === 0) {
     throw new Error("Failed to extract chapters from TOC using Gemini");
   }
@@ -181,11 +181,11 @@ ${tocText}`;
   // Validate and deduplicate chapters
   const seenTitles = new Set<string>();
   const uniqueChapters: ChapterInfo[] = [];
-  
+
   for (const chapter of result.chapters) {
     // Normalize title for comparison
     const normalizedTitle = chapter.title.toLowerCase().trim();
-    
+
     if (!seenTitles.has(normalizedTitle)) {
       seenTitles.add(normalizedTitle);
       uniqueChapters.push(chapter);
@@ -205,7 +205,7 @@ ${tocText}`;
  * Extract text for a specific page range from PDF
  */
 async function extractPagesText(
-  pdf: pdfjs.PDFDocumentProxy,
+  pdf: PDFDocumentProxy,
   startPage: number,
   endPage: number
 ): Promise<string> {
@@ -225,7 +225,7 @@ async function extractPagesText(
 export async function extractChapterTexts(buffer: Buffer) {
   const chapters = await extractChaptersWithGemini(buffer);
   const data = new Uint8Array(buffer);
-  const loadingTask = pdfjs.getDocument({ data });
+  const loadingTask = getDocument({ data });
   const pdf = await loadingTask.promise;
 
   const chapterTexts: Record<string, string> = {};
@@ -310,7 +310,7 @@ Chapter Text:
 ${chapterText.substring(0, 15000)}`;  // Limit text to avoid token limits
 
   const result = await callGeminiJson<ParsedUnit>(prompt);
-  
+
   if (!result || !result.unitTitle || !result.sections) {
     throw new Error(`Failed to parse sections for chapter: ${chapterTitle}`);
   }
@@ -325,7 +325,7 @@ ${chapterText.substring(0, 15000)}`;  // Limit text to avoid token limits
  */
 export async function parseFullTextbook(buffer: Buffer, chapters: ChapterInfo[]): Promise<ParsedUnit[]> {
   const data = new Uint8Array(buffer);
-  const loadingTask = pdfjs.getDocument({ data });
+  const loadingTask = getDocument({ data });
   const pdf = await loadingTask.promise;
 
   const parsedUnits: ParsedUnit[] = [];
@@ -334,12 +334,12 @@ export async function parseFullTextbook(buffer: Buffer, chapters: ChapterInfo[])
     const chapter = chapters[i];
     const startPage = chapter.startPage;
     const endPage = i + 1 < chapters.length ? chapters[i + 1].startPage - 1 : pdf.numPages;
-    
+
     const hasTocSections = chapter.tocSections && chapter.tocSections.length > 0;
     console.log(`Parsing chapter "${chapter.title}" (pages ${startPage}-${endPage})${hasTocSections ? ` with ${chapter.tocSections!.length} TOC sections` : ''}...`);
-    
+
     const chapterText = await extractPagesText(pdf, startPage, endPage);
-    
+
     try {
       const parsedUnit = await parseChapterSections(chapter.title, chapterText, chapter.tocSections);
       parsedUnits.push(parsedUnit);

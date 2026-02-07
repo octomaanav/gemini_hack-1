@@ -25,6 +25,11 @@ import brailleV2Router from "./routes/braille_v2.js";
 const app = express();
 app.set("etag", false);
 
+// Health Check Endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const originalJson = res.json.bind(res);

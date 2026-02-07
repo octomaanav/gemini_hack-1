@@ -4,7 +4,7 @@ services:
     name: gemini-hack-api
     runtime: node
     # Point to the api directory
-    rootCommand: cd api
+    rootDir: api
     # Build command matches what we discussed
     buildCommand: npm install && npm run build
     # Start command matches package.json (includes migration)
@@ -15,7 +15,17 @@ services:
           name: gemini-hack-db
           property: connectionString
       - key: GEMINI_API_KEY
-        sync: false # User must enter this in dashboard
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-2.0-flash-exp"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        plugin: render-frontend
+        property: url
+        sync: false # Or ask user to input if not deploying frontend on Render yet
       - key: NODE_ENV
         value: production
     autoDeploy: false

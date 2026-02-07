@@ -49,7 +49,20 @@ app.use((req, res, next) => {
 // CORS configuration
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // Compare origin with allowed origin (ignoring trailing slash)
+      if (allowedOrigin.replace(/\/$/, '') === origin.replace(/\/$/, '')) {
+        return callback(null, true);
+      } else {
+        // Log mismatch for debugging
+        console.log(`CORS blocked: Origin ${origin} does not match allowed ${allowedOrigin}`);
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
@@ -61,6 +74,17 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 if (storageConfig.provider === "local") {
   app.use("/media", express.static(storageConfig.localRoot));
 }
+
+// Add debug endpoint for cookies
+app.get("/api/auth/debug", (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    user: req.user,
+    cookies: req.headers.cookie,
+    env: process.env.NODE_ENV,
+    frontendUrl: process.env.FRONTEND_URL
+  });
+});
 
 app.use(
   session({

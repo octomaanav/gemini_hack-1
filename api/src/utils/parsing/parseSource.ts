@@ -1,4 +1,5 @@
-import { getDocument, PDFDocumentProxy } from "pdfjs-dist";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import { callGeminiJson } from "../gemini.js";
 import type { TOCSection, ChapterInfo, Section, ParsedUnit } from "../../../types/index.js";
 
